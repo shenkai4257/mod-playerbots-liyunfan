@@ -180,6 +180,7 @@ class CastGreaterBlessingOfSanctuaryOnPartyAction : public BuffOnPartyAction
 {
 public:
     CastGreaterBlessingOfSanctuaryOnPartyAction(PlayerbotAI* botAI) : BuffOnPartyAction(botAI, "greater blessing of sanctuary") {}
+
 };
 
 //end of blessing actions

@@ -339,7 +339,6 @@ public:
 };
 //
 
-
 class AvengingWrathTrigger : public BoostTrigger
 {
 public:

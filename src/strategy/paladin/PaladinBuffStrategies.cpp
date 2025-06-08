@@ -41,6 +41,7 @@ void PaladinBuffManaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void PaladinBuffHealthStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(
+
         new TriggerNode("greater blessing of kings on party",
                         NextAction::array(0, new NextAction("greater blessing of kings on party", 13.0f), nullptr)));
     
@@ -64,6 +65,7 @@ void PaladinBuffHealthStrategy::InitTriggers(std::vector<TriggerNode*>& triggers
         new TriggerNode("blessing of wisdom",
                         NextAction::array(0, new NextAction("blessing of wisdom", 11.0f), nullptr)));
     
+
 }
 
 void PaladinBuffDpsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
