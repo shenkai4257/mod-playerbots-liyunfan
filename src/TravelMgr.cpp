@@ -18,6 +18,7 @@
 #include "TransportMgr.h"
 #include "VMapFactory.h"
 #include "VMapMgr2.h"
+#include "SharedDefines.h"
 #include "Corpse.h"
 
 WorldPosition::WorldPosition(std::string const str)
@@ -221,6 +222,44 @@ bool WorldPosition::isUnderWater()
 bool WorldPosition::IsValid()
 {
     return !(GetMapId() == MAPID_INVALID && GetPositionX() == 0 && GetPositionY() == 0 && GetPositionZ() == 0);
+}
+
+bool WorldPosition::NormalizePositionForTeleport(Player* bot)
+{
+    if (!bot)
+        return false;
+
+    Map* map = getMap();
+    if (!map)
+        return false;
+
+    float x = getX();
+    float y = getY();
+    float z = getZ();
+
+    if (map->CanReachPositionAndGetValidCoords(bot, x, y, z))
+    {
+        setX(x);
+        setY(y);
+        setZ(z);
+        return true;
+    }
+
+    float groundZ = map->GetHeight(x, y, MAX_HEIGHT);
+    float waterZ = map->GetWaterLevel(x, y);
+    float safeZ = std::max(groundZ, waterZ);
+    if (safeZ <= INVALID_HEIGHT || safeZ == VMAP_INVALID_HEIGHT_VALUE)
+    {
+        LOG_DEBUG("playerbots",
+                  "[Teleport] Invalid destination after height check ({},{},{},{}) groundZ:{} waterZ:{}",
+                  x, y, z, getMapId(), groundZ, waterZ);
+        return false;
+    }
+
+    setX(x);
+    setY(y);
+    setZ(safeZ);
+    return true;
 }
 
 WorldPosition WorldPosition::relPoint(WorldPosition* center)

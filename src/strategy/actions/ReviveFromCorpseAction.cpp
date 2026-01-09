@@ -13,6 +13,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ServerFacade.h"
+#include "TravelMgr.h"
 #include "Corpse.h"
 
 bool ReviveFromCorpseAction::Execute(Event event)
@@ -170,7 +171,17 @@ bool FindCorpseAction::Execute(Event event)
         {
             bot->GetMotionMaster()->Clear();
             bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-            bot->TeleportTo(moveToPos.getMapId(), moveToPos.getX(), moveToPos.getY(), moveToPos.getZ(), 0);
+            WorldPosition safePos = moveToPos;
+            if (safePos.NormalizePositionForTeleport(bot))
+            {
+                         bot->GetName(), safePos.getX(), safePos.getY(), safePos.getZ(), safePos.getMapId());
+                bot->TeleportTo(safePos.getMapId(), safePos.getX(), safePos.getY(), safePos.getZ(), 0);
+            }
+            else
+            {
+                LOG_DEBUG("playerbots", "Skip corpse teleport for {} due to invalid destination ({},{},{},{})",
+                          bot->GetName(), moveToPos.getX(), moveToPos.getY(), moveToPos.getZ(), moveToPos.getMapId());
+            }
         }
 
         moved = true;
