@@ -174,7 +174,6 @@ bool FindCorpseAction::Execute(Event event)
             WorldPosition safePos = moveToPos;
             if (safePos.NormalizePositionForTeleport(bot))
             {
-                         bot->GetName(), safePos.getX(), safePos.getY(), safePos.getZ(), safePos.getMapId());
                 bot->TeleportTo(safePos.getMapId(), safePos.getX(), safePos.getY(), safePos.getZ(), 0);
             }
             else
