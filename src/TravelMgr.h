@@ -142,6 +142,7 @@ public:
     bool isInWater();
     bool isUnderWater();
     bool IsValid();
+    bool NormalizePositionForTeleport(Player* bot);
 
     WorldPosition relPoint(WorldPosition* center);
     WorldPosition offset(WorldPosition* center);
