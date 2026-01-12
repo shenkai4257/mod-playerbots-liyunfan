@@ -231,6 +231,8 @@ bool WorldPosition::NormalizePositionForTeleport(Player* bot)
 
     Map* map = getMap();
     if (!map)
+        map = sMapMgr->FindBaseMap(getMapId());
+    if (!map)
         return false;
 
     float x = getX();
@@ -242,6 +244,7 @@ bool WorldPosition::NormalizePositionForTeleport(Player* bot)
         setX(x);
         setY(y);
         setZ(z);
+
         return true;
     }
 
@@ -250,15 +253,15 @@ bool WorldPosition::NormalizePositionForTeleport(Player* bot)
     float safeZ = std::max(groundZ, waterZ);
     if (safeZ <= INVALID_HEIGHT || safeZ == VMAP_INVALID_HEIGHT_VALUE)
     {
-        LOG_DEBUG("playerbots",
-                  "[Teleport] Invalid destination after height check ({},{},{},{}) groundZ:{} waterZ:{}",
-                  x, y, z, getMapId(), groundZ, waterZ);
+    LOG_ERROR("playerbots", "[MISSED Teleport by Travel Manager] Normalized destination ({},{},{},{})",
+             x, y, safeZ, getMapId());
         return false;
     }
 
     setX(x);
     setY(y);
     setZ(safeZ);
+
     return true;
 }
 

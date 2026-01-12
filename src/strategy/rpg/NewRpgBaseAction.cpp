@@ -63,7 +63,7 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
         if (!safeDest.NormalizePositionForTeleport(bot))
         {
             LOG_DEBUG("playerbots",
-                      "[New RPG Teleport] Skip teleport for {} due to invalid destination ({},{},{},{})",
+                      "[New RPG] Skip teleport for {} due to invalid destination ({},{},{},{})",
                       bot->GetName(), dest.GetPositionX(), dest.GetPositionY(), dest.GetPositionZ(), dest.getMapId());
             return false;
         }
