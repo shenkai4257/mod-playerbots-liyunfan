@@ -13,6 +13,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ServerFacade.h"
+#include "TravelMgr.h"
 #include "Corpse.h"
 
 bool ReviveFromCorpseAction::Execute(Event event)
@@ -170,7 +171,9 @@ bool FindCorpseAction::Execute(Event event)
         {
             bot->GetMotionMaster()->Clear();
             bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-            bot->TeleportTo(moveToPos.getMapId(), moveToPos.getX(), moveToPos.getY(), moveToPos.getZ(), 0);
+            WorldPosition safePos = moveToPos;
+            if (safePos.NormalizePositionForTeleport(bot))
+                bot->TeleportTo(safePos.getMapId(), safePos.getX(), safePos.getY(), safePos.getZ(), 0);
         }
 
         moved = true;
@@ -308,6 +311,9 @@ bool SpiritHealerAction::Execute(Event event)
     GraveyardStruct const* ClosestGrave =
         GetGrave(dCount > 10 || deadTime > 15 * MINUTE || AI_VALUE(uint8, "durability") < 10);
 
+    if (!ClosestGrave)
+        return false;
+
     if (bot->GetDistance2d(ClosestGrave->x, ClosestGrave->y) < sPlayerbotAIConfig->sightDistance)
     {
         GuidVector npcs = AI_VALUE(GuidVector, "nearest npcs");
@@ -333,11 +339,6 @@ bool SpiritHealerAction::Execute(Event event)
         }
     }
 
-    if (!ClosestGrave)
-    {
-        return false;
-    }
-
     bool moved = false;
 
     if (bot->IsWithinLOS(ClosestGrave->x, ClosestGrave->y, ClosestGrave->z))
@@ -348,17 +349,16 @@ bool SpiritHealerAction::Execute(Event event)
     if (moved)
         return true;
 
-    // if (!botAI->HasActivePlayerMaster())
-    // {
     context->GetValue<uint32>("death count")->Set(dCount + 1);
     bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-    return bot->TeleportTo(ClosestGrave->Map, ClosestGrave->x, ClosestGrave->y, ClosestGrave->z, 0.f);
-    // }
-
-    // LOG_INFO("playerbots", "Bot {} {}:{} <{}> can't find a spirit healer", bot->GetGUID().ToString().c_str(),
-    //          bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName().c_str());
-
-    // botAI->TellError("Cannot find any spirit healer nearby");
+    WorldPosition safePos(ClosestGrave->Map, ClosestGrave->x, ClosestGrave->y, ClosestGrave->z, 0.f);
+    if (safePos.NormalizePositionForTeleport(bot))
+    {
+        return bot->TeleportTo(safePos.getMapId(), safePos.getX(), safePos.getY(), safePos.getZ(), 0.f);
+    }
+    LOG_DEBUG("playerbots",
+              "Skip spirit healer teleport for {} due to invalid destination ({},{},{},{})",
+              bot->GetName(), safePos.getX(), safePos.getY(), safePos.getZ(), safePos.getMapId());
     return false;
 }
 
