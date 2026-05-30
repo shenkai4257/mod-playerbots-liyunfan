@@ -187,6 +187,13 @@ AiPlayerbot.SelfBotLevel = 1
 # Default: 0 (non-GM player can use any intialization commands)
 AiPlayerbot.AutoInitOnly = 0
 
+# Allow .bot refresh=raid to unbind instances on player-created alt
+# bots (non-addclass bots). When 0, refresh=raid is denied on alts
+# with "non-addclass bot" error. UnbindInstance is DB-light, no lag
+# risk from enabling this.
+# Default: 0
+AiPlayerbot.ResetInstanceIdForAltBots = 0
+
 # The upper limit ratio of bot equipment level for init=auto
 # Default: 1.0 (same with the player)
 AiPlayerbot.AutoInitEquipLevelLimitRatio = 1.0
