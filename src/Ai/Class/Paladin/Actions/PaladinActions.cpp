@@ -8,11 +8,13 @@
 #include "AiFactory.h"
 #include "Event.h"
 #include "GenericBuffUtils.h"
-#include "PaladinGreaterBlessingAction.h"
+#include "PaladinBlessingActions.h"
 #include "PaladinHelper.h"
 #include "Playerbots.h"
 #include "SharedDefines.h"
 
+// [[DEPRECATED]] Old blessing helpers
+#if 0
 static bool IsBlessingTargetCandidate(Player* bot, Player* player)
 {
     if (!player || !player->IsAlive() || player->GetMapId() != bot->GetMapId())
@@ -132,8 +134,11 @@ static inline bool IsOnlyPaladinInGroup(Player* bot)
     }
 
     return paladins == 1u;
-}
+    }
+#endif
 
+// [[DEPRECATED]]
+#if 0
 inline std::string const GetActualBlessingOfMight(Unit* target)
 {
     if (!target->ToPlayer())
@@ -532,6 +537,7 @@ bool CastBlessingOfKingsOnPartyAction::Execute(Event /*event*/)
 
     return botAI->CastSpell("blessing of kings", target);
 }
+#endif
 
 bool CastSealSpellAction::isUseful()
 {

@@ -102,6 +102,10 @@ bool BattleShoutTrigger::IsActive()
     if (!BuffTrigger::IsActive())
         return false;
 
+    if (botAI->HasAura("blessing of might", bot) ||
+        botAI->HasAura("greater blessing of might", bot))
+        return false;
+
     uint32 battleShoutSpellId = AI_VALUE2(uint32, "spell id", "battle shout");
     if (!battleShoutSpellId)
         return false;

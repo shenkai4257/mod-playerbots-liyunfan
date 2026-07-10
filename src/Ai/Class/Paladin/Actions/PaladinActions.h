@@ -425,4 +425,7 @@ public:
     bool isUseful() override;
 };
 
+// New blessing system
+#include "PaladinBlessingActions.h"
+
 #endif

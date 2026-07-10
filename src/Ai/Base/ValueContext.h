@@ -68,6 +68,7 @@
 #include "PartyMemberToResurrect.h"
 #include "PartyMemberSnaredTargetValue.h"
 #include "PartyMemberWithoutAuraValue.h"
+#include "PartyMemberWithoutBlessingValue.h"
 #include "PartyMemberWithoutItemValue.h"
 #include "PetTargetValue.h"
 #include "PositionValue.h"
@@ -129,6 +130,7 @@ public:
         creators["nearest corpses"] = &ValueContext::nearest_corpses;
         creators["log level"] = &ValueContext::log_level;
         creators["party member without aura"] = &ValueContext::party_member_without_aura;
+        creators["party member without blessing"] = &ValueContext::party_member_without_blessing;
         creators["attacker without aura"] = &ValueContext::attacker_without_aura;
         creators["melee attacker without aura"] = &ValueContext::melee_attacker_without_aura;
         creators["party member to heal"] = &ValueContext::party_member_to_heal;
@@ -447,6 +449,10 @@ private:
     static UntypedValue* party_member_without_aura(PlayerbotAI* botAI)
     {
         return new PartyMemberWithoutAuraValue(botAI);
+    }
+    static UntypedValue* party_member_without_blessing(PlayerbotAI* botAI)
+    {
+        return new PartyMemberWithoutBlessingValue(botAI);
     }
     static UntypedValue* attacker_without_aura(PlayerbotAI* botAI) { return new AttackerWithoutAuraTargetValue(botAI); }
     static UntypedValue* melee_attacker_without_aura(PlayerbotAI* botAI)

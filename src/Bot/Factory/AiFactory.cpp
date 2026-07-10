@@ -338,6 +338,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
             engine->addStrategiesNoInit("dps assist", "cure", "aoe", nullptr);
             break;
         case CLASS_PALADIN:
+            engine->addStrategy("blessing", false);
             if (tab == PALADIN_TAB_PROTECTION)
                 engine->addStrategiesNoInit("tank", "tank assist", "pull", "pull back", "bthreat", "barmor", "cure", nullptr);
             else if (tab == PALADIN_TAB_HOLY)
@@ -512,19 +513,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
             nonCombatEngine->addStrategiesNoInit("dps assist", "cure", "rshadow", nullptr);
             break;
         case CLASS_PALADIN:
-            if (tab == PALADIN_TAB_PROTECTION)
-            {
-                nonCombatEngine->addStrategiesNoInit("bthreat", "tank assist", "pull", "barmor", nullptr);
-                if (player->GetLevel() >= 20)
-                    nonCombatEngine->addStrategy("bsanc", false);
-                else
-                    nonCombatEngine->addStrategy("bmight", false);
-            }
-            else if (tab == PALADIN_TAB_HOLY)
-                nonCombatEngine->addStrategiesNoInit("dps assist", "bwisdom", "bcast", nullptr);
-            else
-                nonCombatEngine->addStrategiesNoInit("dps assist", "bmight", "baoe", nullptr);
-
+            nonCombatEngine->addStrategy("blessing", false);
             nonCombatEngine->addStrategiesNoInit("cure", nullptr);
             break;
         case CLASS_HUNTER:

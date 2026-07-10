@@ -74,6 +74,13 @@ void PaladinBuffSpeedStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         "crusader aura", { NextAction("crusader aura", ACTION_NORMAL) }));
 }
 
+
+void PaladinBlessingStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    triggers.push_back(new TriggerNode("blessing",
+        { NextAction("blessing", ACTION_NORMAL + 1.0f) }));
+}
+
 void PaladinBuffThreatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(new TriggerNode(

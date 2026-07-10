@@ -82,6 +82,16 @@ public:
     std::string const getName() override { return "bthreat"; }
 };
 
+
+class PaladinBlessingStrategy : public Strategy
+{
+public:
+    PaladinBlessingStrategy(PlayerbotAI* botAI) : Strategy(botAI) {}
+
+    void InitTriggers(std::vector<TriggerNode*>& triggers) override;
+    std::string const getName() override { return "blessing"; }
+};
+
 class PaladinBuffStatsStrategy : public Strategy
 {
 public:

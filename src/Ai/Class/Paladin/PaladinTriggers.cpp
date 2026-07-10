@@ -6,7 +6,8 @@
 #include "PaladinTriggers.h"
 
 #include "GenericBuffUtils.h"
-#include "PaladinGreaterBlessingAction.h"
+#include "AiFactory.h"
+#include "PaladinBlessingActions.h"
 #include "PaladinActions.h"
 #include "PaladinHelper.h"
 #include "Playerbots.h"
@@ -28,10 +29,66 @@ bool CrusaderAuraTrigger::IsActive()
 
 bool BlessingTrigger::IsActive()
 {
-    Unit* target = GetTarget();
-    return SpellTrigger::IsActive() &&
-           !botAI->HasAnyAuraOf(target, "blessing of might", "blessing of wisdom",
-                                "blessing of kings", "blessing of sanctuary", nullptr);
+    // Iterate all reachable party members, check if any is missing their required blessing
+    std::vector<Player*> targets;
+    Group* group = bot->GetGroup();
+
+    if (group)
+    {
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* player = ref->GetSource();
+            if (!player || !player->IsInWorld() || !player->IsAlive())
+                continue;
+            if (bot->GetMapId() != player->GetMapId())
+                continue;
+            if (bot->GetDistance(player) > sPlayerbotAIConfig.spellDistance * 2)
+                continue;
+            targets.push_back(player);
+        }
+    }
+    else
+    {
+        targets.push_back(bot);
+    }
+
+    for (Player* target : targets)
+    {
+        // If target already has ANY blessing from us, skip entirely
+        if (HasAnyBuffOfMe(target))
+            continue;
+
+        // Check blessings in per-class priority order
+        auto priority = GetBlessingPriorityFor(target);
+        for (std::string const& blessing : priority)
+        {
+            bool hasIt = botAI->HasAura(blessing, target) ||
+                         botAI->HasAura("greater " + blessing, target);
+            if (!hasIt)
+            {
+                std::string display = blessing.substr(11);
+                std::ostringstream msg;
+                msg << "缺少 " << display << " -> " << target->GetName();
+                botAI->TellMaster(msg.str());
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+
+bool BlessingTrigger::HasAnyBuffOfMe(Unit* target)
+{
+    return botAI->HasAura("blessing of might", target, false, true) ||
+           botAI->HasAura("greater blessing of might", target, false, true) ||
+           botAI->HasAura("blessing of wisdom", target, false, true) ||
+           botAI->HasAura("greater blessing of wisdom", target, false, true) ||
+           botAI->HasAura("blessing of kings", target, false, true) ||
+           botAI->HasAura("greater blessing of kings", target, false, true) ||
+           botAI->HasAura("blessing of sanctuary", target, false, true) ||
+           botAI->HasAura("greater blessing of sanctuary", target, false, true);
 }
 
 bool DivineShieldLowHealthTrigger::IsActive()
@@ -79,6 +136,8 @@ bool NotSensingUndeadTrigger::IsActive()
     return !botAI->HasAura("sense undead", bot);
 }
 
+// [[DEPRECATED]]
+#if 0
 bool GreaterBlessingNeededTrigger::IsActive()
 {
     if (!ai::gbless::IsEligibleGroupForAutoBlessings(bot->GetGroup()))
@@ -104,3 +163,6 @@ bool GreaterBlessingNeededTrigger::IsActive()
 
     return pendingAssignment.valid && pendingAssignment.groupKey == groupKey;
 }
+
+#endif
+

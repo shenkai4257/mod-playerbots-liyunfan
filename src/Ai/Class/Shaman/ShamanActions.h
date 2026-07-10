@@ -412,6 +412,8 @@ class CastTotemicRecallAction : public CastSpellAction
 public:
     CastTotemicRecallAction(PlayerbotAI* botAI) :
         CastSpellAction(botAI, "totemic recall") {}
+
+    Unit* GetTarget() override { return bot; }
 };
 
 class CastStrengthOfEarthTotemAction : public CastTotemAction

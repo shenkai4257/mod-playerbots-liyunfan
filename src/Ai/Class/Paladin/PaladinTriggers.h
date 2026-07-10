@@ -6,6 +6,7 @@
 #ifndef PLAYERBOTS_PALADINTRIGGERS_H
 #define PLAYERBOTS_PALADINTRIGGERS_H
 
+#include <vector>
 #include "CureTriggers.h"
 #include "GenericTriggers.h"
 #include "SharedDefines.h"
@@ -54,12 +55,14 @@ public:
         : BuffOnPartyTrigger(botAI, "blessing of kings,blessing of might,blessing of wisdom", 2 * 2000) {}
 };
 
-class BlessingTrigger : public BuffTrigger
+class BlessingTrigger : public BuffOnPartyTrigger
 {
 public:
-    BlessingTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "blessing of sanctuary", 2 * 2000) {}
+    BlessingTrigger(PlayerbotAI* botAI)
+        : BuffOnPartyTrigger(botAI, "blessing", 2 * 2000) {}
 
     bool IsActive() override;
+    bool HasAnyBuffOfMe(Unit* target);
 };
 
 class HammerOfJusticeInterruptSpellTrigger : public InterruptSpellTrigger
@@ -253,13 +256,7 @@ public:
     AvengingWrathTrigger(PlayerbotAI* botAI) : BoostTrigger(botAI, "avenging wrath") {}
 };
 
-class GreaterBlessingNeededTrigger : public Trigger
-{
-public:
-    GreaterBlessingNeededTrigger(PlayerbotAI* botAI)
-        : Trigger(botAI, "greater blessing needed", 4) {}
-
-    bool IsActive() override;
-};
+// [[DEPRECATED]]
+// class GreaterBlessingNeededTrigger ...
 
 #endif
