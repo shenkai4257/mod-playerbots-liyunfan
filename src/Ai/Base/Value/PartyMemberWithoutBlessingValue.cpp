@@ -6,6 +6,7 @@
 
 #include "AiFactory.h"
 #include "Playerbots.h"
+#include "SpellAuraEffects.h"
 
 extern std::vector<std::string> split(std::string const s, char delim);
 
@@ -164,7 +165,7 @@ namespace
             if (!isMight && !isWisdom)
                 return false;  // kings/sanctuary: never override
 
-            // Get our spell's base value
+            // Get our spell's value (including talent bonuses)
             uint32 ourSpellId = botAI->GetAiObjectContext()->GetValue<uint32>("spell id", auraName)->Get();
             if (!ourSpellId)
                 return false;
@@ -176,28 +177,38 @@ namespace
             int32 ourValue = 0;
             uint32 auraType = isMight ? SPELL_AURA_MOD_ATTACK_POWER : SPELL_AURA_MOD_POWER_REGEN;
             for (uint8 eff = 0; eff < MAX_SPELL_EFFECTS; ++eff)
+            {
                 if (ourInfo->Effects[eff].ApplyAuraName == auraType)
-                    ourValue = ourInfo->Effects[eff].BasePoints + 1;
+                {
+                    // Use CalcValue to include talent bonuses (e.g. Improved Blessing of Might)
+                    ourValue = ourInfo->Effects[eff].CalcValue(botAI->GetBot());
+                    break;
+                }
+            }
 
             if (!ourValue)
                 return false;
 
-            // Get the existing aura on target
+            // Get the existing aura's actual applied value (includes caster's talents)
+            AuraEffect* existingEffect = nullptr;
             Aura* existing = botAI->GetAura(auraName, unit);
             if (!existing)
                 return true;  // aura just expired -> can cast
 
-            // Compare by spell rank
-            SpellInfo const* existingInfo = existing->GetSpellInfo();
-            if (!existingInfo)
+            for (uint8 eff = 0; eff < MAX_SPELL_EFFECTS; ++eff)
+            {
+                if (existing->GetEffect(eff) &&
+                    existing->GetEffect(eff)->GetAuraType() == auraType)
+                {
+                    existingEffect = existing->GetEffect(eff);
+                    break;
+                }
+            }
+
+            if (!existingEffect)
                 return true;
 
-            int32 existingValue = 0;
-            for (uint8 eff = 0; eff < MAX_SPELL_EFFECTS; ++eff)
-                if (existingInfo->Effects[eff].ApplyAuraName == auraType)
-                    existingValue = existingInfo->Effects[eff].BasePoints + 1;
-
-            return ourValue > existingValue;
+            return ourValue > existingEffect->GetAmount();
         }
         std::vector<std::string> auras;
     };
