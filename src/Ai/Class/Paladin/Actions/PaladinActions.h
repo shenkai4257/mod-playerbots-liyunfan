@@ -426,6 +426,7 @@ public:
 };
 
 // New blessing system
-#include "PaladinBlessingActions.h"
+// [[DEPRECATED]] — removed
+//#include "PaladinBlessingActions.h"
 
 #endif

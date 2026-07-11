@@ -7,7 +7,8 @@
 
 #include "DpsPaladinStrategy.h"
 #include "GenericPaladinNonCombatStrategy.h"
-#include "PaladinGreaterBlessingAction.h"
+// [[DEPRECATED]] — removed
+//#include "PaladinGreaterBlessingAction.h"
 #include "HealPaladinStrategy.h"
 #include "NamedObjectContext.h"
 #include "OffhealRetPaladinStrategy.h"
@@ -104,7 +105,8 @@ public:
         creators["judgement"] = &PaladinTriggerFactoryInternal::judgement;
         creators["judgement of wisdom"] = &PaladinTriggerFactoryInternal::judgement_of_wisdom;
         creators["judgement of light"] = &PaladinTriggerFactoryInternal::judgement_of_light;
-        creators["blessing"] = &PaladinTriggerFactoryInternal::blessing;
+        // [[DEPRECATED]] — replaced by 4 independent blessing triggers
+        // creators["blessing"] = &PaladinTriggerFactoryInternal::blessing;
         creators["seal"] = &PaladinTriggerFactoryInternal::seal;
         creators["art of war"] = &PaladinTriggerFactoryInternal::art_of_war;
         // [[DEPRECATED]]
@@ -168,7 +170,8 @@ private:
     static Trigger* judgement(PlayerbotAI* botAI) { return new JudgementTrigger(botAI); }
     static Trigger* judgement_of_wisdom(PlayerbotAI* botAI) { return new JudgementOfWisdomTrigger(botAI); }
     static Trigger* judgement_of_light(PlayerbotAI* botAI) { return new JudgementOfLightTrigger(botAI); }
-    static Trigger* blessing(PlayerbotAI* botAI) { return new BlessingTrigger(botAI); }
+    // [[DEPRECATED]] — replaced by 4 independent blessing triggers
+    // static Trigger* blessing(PlayerbotAI* botAI) { return new BlessingTrigger(botAI); }
     static Trigger* seal(PlayerbotAI* botAI) { return new SealTrigger(botAI); }
     static Trigger* art_of_war(PlayerbotAI* botAI) { return new ArtOfWarTrigger(botAI); }
     // [[DEPRECATED]]
@@ -355,7 +358,7 @@ private:
     // [[DEPRECATED]]
     // // [[DEPRECATED]]
     // static Action* blessing_of_sanctuary(PlayerbotAI* botAI) { return new CastBlessingOfSanctuaryAction(botAI); }
-    static Action* blessing(PlayerbotAI* botAI) { return new CastBlessingAction(botAI); }
+    static Action* blessing(PlayerbotAI* botAI) { return nullptr /* CastBlessingAction removed */; }
     // [[DEPRECATED]]
     // static Action* blessing_of_wisdom(PlayerbotAI* botAI) { return new CastBlessingOfWisdomAction(botAI); }
     // [[DEPRECATED]]

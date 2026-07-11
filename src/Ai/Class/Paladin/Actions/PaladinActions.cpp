@@ -8,7 +8,8 @@
 #include "AiFactory.h"
 #include "Event.h"
 #include "GenericBuffUtils.h"
-#include "PaladinBlessingActions.h"
+// [[DEPRECATED]] — removed
+//#include "PaladinBlessingActions.h"
 #include "PaladinHelper.h"
 #include "Playerbots.h"
 #include "SharedDefines.h"

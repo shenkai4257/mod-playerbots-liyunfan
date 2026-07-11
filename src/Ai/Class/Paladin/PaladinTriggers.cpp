@@ -7,7 +7,8 @@
 
 #include "GenericBuffUtils.h"
 #include "AiFactory.h"
-#include "PaladinBlessingActions.h"
+// [[DEPRECATED]] — removed
+//#include "PaladinBlessingActions.h"
 #include "PaladinActions.h"
 #include "PaladinHelper.h"
 #include "Playerbots.h"
@@ -27,6 +28,8 @@ bool CrusaderAuraTrigger::IsActive()
     return AI_VALUE2(bool, "mounted", "self target") && !botAI->HasAura("crusader aura", target);
 }
 
+// [[DEPRECATED]]
+#if 0
 bool BlessingTrigger::IsActive()
 {
     // Iterate all reachable party members, check if any is missing their required blessing
@@ -90,6 +93,8 @@ bool BlessingTrigger::HasAnyBuffOfMe(Unit* target)
            botAI->HasAura("blessing of sanctuary", target, false, true) ||
            botAI->HasAura("greater blessing of sanctuary", target, false, true);
 }
+
+#endif
 
 bool DivineShieldLowHealthTrigger::IsActive()
 {
