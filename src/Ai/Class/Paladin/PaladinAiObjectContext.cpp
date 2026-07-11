@@ -147,13 +147,13 @@ public:
         creators["hand of freedom on party"] = &PaladinTriggerFactoryInternal::hand_of_freedom_on_party;
 
         // [[DEPRECATED]]
-        // creators["blessing of kings on party"] = &PaladinTriggerFactoryInternal::blessing_of_kings_on_party;
+// creators["blessing of kings on party"] = &PaladinTriggerFactoryInternal::blessing_of_kings_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of wisdom on party"] = &PaladinTriggerFactoryInternal::blessing_of_wisdom_on_party;
+// creators["blessing of wisdom on party"] = &PaladinTriggerFactoryInternal::blessing_of_wisdom_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of might on party"] = &PaladinTriggerFactoryInternal::blessing_of_might_on_party;
+// creators["blessing of might on party"] = &PaladinTriggerFactoryInternal::blessing_of_might_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of sanctuary on party"] = &PaladinTriggerFactoryInternal::blessing_of_sanctuary_on_party;
+// creators["blessing of sanctuary on party"] = &PaladinTriggerFactoryInternal::blessing_of_sanctuary_on_party;
 
         creators["avenging wrath"] = &PaladinTriggerFactoryInternal::avenging_wrath;
         // [[DEPRECATED]]
@@ -222,20 +222,10 @@ private:
     static Trigger* hand_of_freedom_on_party(PlayerbotAI* botAI) { return new HandOfFreedomOnPartyTrigger(botAI); }
 
     // [[DEPRECATED]]
-    // static Trigger* blessing_of_kings_on_party(PlayerbotAI* botAI) { return new BlessingOfKingsOnPartyTrigger(botAI); }
-    // [[DEPRECATED]]
-    // static Trigger* blessing_of_wisdom_on_party(PlayerbotAI* botAI)
-    // {
-    //     return new BlessingOfWisdomOnPartyTrigger(botAI);
-    // }
-    // [[DEPRECATED]]
-    // static Trigger* blessing_of_might_on_party(PlayerbotAI* botAI) { return new BlessingOfMightOnPartyTrigger(botAI); }
-    // [[DEPRECATED]]
-    // static Trigger* blessing_of_sanctuary_on_party(PlayerbotAI* botAI)
-    // {
-    //     return new BlessingOfSanctuaryOnPartyTrigger(botAI);
-    // }
-
+    // static Trigger* blessing_of_kings_on_party(PlayerbotAI* botAI) { return new BlessingOfKingsOnPartyTrigger(botAI); }    // [[DEPRECATED]]
+    // static Trigger* blessing_of_wisdom_on_party(PlayerbotAI* botAI)    // {    //     return new BlessingOfWisdomOnPartyTrigger(botAI);    // }    // [[DEPRECATED]]
+    // static Trigger* blessing_of_might_on_party(PlayerbotAI* botAI) { return new BlessingOfMightOnPartyTrigger(botAI); }    // [[DEPRECATED]]
+    // static Trigger* blessing_of_sanctuary_on_party(PlayerbotAI* botAI)    // {    //     return new BlessingOfSanctuaryOnPartyTrigger(botAI);    // }
     static Trigger* avenging_wrath(PlayerbotAI* botAI) { return new AvengingWrathTrigger(botAI); }
     // [[DEPRECATED]]
     // static Trigger* greater_blessing_needed(PlayerbotAI* botAI)
@@ -261,13 +251,13 @@ public:
         // creators["blessing of sanctuary"] = &PaladinAiObjectContextInternal::blessing_of_sanctuary;
         creators["divine storm"] = &PaladinAiObjectContextInternal::divine_storm;
         // [[DEPRECATED]]
-        // creators["blessing of kings on party"] = &PaladinAiObjectContextInternal::blessing_of_kings_on_party;
+// creators["blessing of kings on party"] = &PaladinAiObjectContextInternal::blessing_of_kings_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of might on party"] = &PaladinAiObjectContextInternal::blessing_of_might_on_party;
+// creators["blessing of might on party"] = &PaladinAiObjectContextInternal::blessing_of_might_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of wisdom on party"] = &PaladinAiObjectContextInternal::blessing_of_wisdom_on_party;
+// creators["blessing of wisdom on party"] = &PaladinAiObjectContextInternal::blessing_of_wisdom_on_party;
         // [[DEPRECATED]]
-        // creators["blessing of sanctuary on party"] = &PaladinAiObjectContextInternal::blessing_of_sanctuary_on_party;
+// creators["blessing of sanctuary on party"] = &PaladinAiObjectContextInternal::blessing_of_sanctuary_on_party;
         creators["redemption"] = &PaladinAiObjectContextInternal::redemption;
         creators["crusader strike"] = &PaladinAiObjectContextInternal::crusader_strike;
         creators["crusader aura"] = &PaladinAiObjectContextInternal::crusader_aura;
