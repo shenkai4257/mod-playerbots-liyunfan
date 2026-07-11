@@ -35,6 +35,4 @@ void GenericPaladinNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& tr
     // triggers.push_back(new TriggerNode("greater blessing needed",
     //     { NextAction("cast greater blessing assignment", ACTION_NORMAL) }));
 
-    triggers.push_back(new TriggerNode("blessing",
-        { NextAction("blessing", ACTION_NORMAL + 1.0f) }));
 }

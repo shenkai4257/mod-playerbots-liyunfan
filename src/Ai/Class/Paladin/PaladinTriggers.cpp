@@ -28,6 +28,20 @@ bool CrusaderAuraTrigger::IsActive()
     return AI_VALUE2(bool, "mounted", "self target") && !botAI->HasAura("crusader aura", target);
 }
 
+Value<Unit*>* BlessingOnPartyTrigger::GetTargetValue()
+{
+    std::string qualifier = spell + ",greater " + spell;
+    return context->GetValue<Unit*>("party member without blessing", qualifier);
+}
+
+bool BlessingOnPartyTrigger::IsActive()
+{
+    if (!AI_VALUE2(uint32, "spell id", spell))
+        return false;
+
+    return BuffOnPartyTrigger::IsActive();
+}
+
 // [[DEPRECATED]]
 #if 0
 bool BlessingTrigger::IsActive()

@@ -610,3 +610,27 @@ bool CastCancelDivineSacrificeAction::isUseful()
 {
     return botAI->HasAura("divine sacrifice", GetTarget(), false, true, -1, true);
 }
+
+// ── Blessing system (Plan B) ──
+
+Value<Unit*>* CastBlessingOnPartyAction::GetTargetValue()
+{
+    std::string const qualifier = spell + ",greater " + spell;
+    return context->GetValue<Unit*>("party member without blessing", qualifier);
+}
+
+bool CastBlessingOnPartyAction::Execute(Event event)
+{
+    Unit* target = GetTarget();
+    if (!target)
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (group && group->isRaidGroup() && bot->GetItemCount(21177) > 0)
+    {
+        if (botAI->CastSpell("greater " + spell, target))
+            return true;
+    }
+
+    return botAI->CastSpell(spell, target);
+}

@@ -77,8 +77,22 @@ void PaladinBuffSpeedStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 
 void PaladinBlessingStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
-    triggers.push_back(new TriggerNode("blessing",
-        { NextAction("blessing", ACTION_NORMAL + 1.0f) }));
+    // Order by priority: Sanctuary (tanks) > Might (physical) > Wisdom (casters) > Kings (everyone)
+    triggers.push_back(
+        new TriggerNode("blessing of sanctuary on party",
+                        { NextAction("blessing of sanctuary on party", 12.0f) }));
+
+    triggers.push_back(
+        new TriggerNode("blessing of might on party",
+                        { NextAction("blessing of might on party", 11.0f) }));
+
+    triggers.push_back(
+        new TriggerNode("blessing of wisdom on party",
+                        { NextAction("blessing of wisdom on party", 11.0f) }));
+
+    triggers.push_back(
+        new TriggerNode("blessing of kings on party",
+                        { NextAction("blessing of kings on party", 10.5f) }));
 }
 
 void PaladinBuffThreatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
