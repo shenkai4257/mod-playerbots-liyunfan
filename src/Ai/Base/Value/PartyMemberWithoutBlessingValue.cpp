@@ -137,13 +137,68 @@ namespace
 
         bool Check(Unit* unit) override
         {
-            if (!unit->IsAlive()) return false;
+            if (!unit->IsAlive())
+                return false;
+
             for (auto const& a : auras)
-                if (botAI->HasAura(a, unit)) return false;
-            if (HasAnyBlessingFromMe(botAI, unit)) return false;
+            {
+                if (!botAI->HasAura(a, unit))
+                    continue;
+
+                // Target already has this aura → only override if our buff is stronger
+                if (!ShouldOverride(a, unit))
+                    return false;
+            }
+
+            if (HasAnyBlessingFromMe(botAI, unit))
+                return false;
+
             return true;
         }
+
     private:
+        bool ShouldOverride(std::string const& auraName, Unit* unit)
+        {
+            bool isMight = auraName.find("might") != std::string::npos;
+            bool isWisdom = auraName.find("wisdom") != std::string::npos;
+            if (!isMight && !isWisdom)
+                return false;  // kings/sanctuary: never override
+
+            // Get our spell's base value
+            uint32 ourSpellId = botAI->GetAiObjectContext()->GetValue<uint32>("spell id", auraName)->Get();
+            if (!ourSpellId)
+                return false;
+
+            SpellInfo const* ourInfo = sSpellMgr->GetSpellInfo(ourSpellId);
+            if (!ourInfo)
+                return false;
+
+            int32 ourValue = 0;
+            uint32 auraType = isMight ? SPELL_AURA_MOD_ATTACK_POWER : SPELL_AURA_MOD_POWER_REGEN;
+            for (uint8 eff = 0; eff < MAX_SPELL_EFFECTS; ++eff)
+                if (ourInfo->Effects[eff].ApplyAuraName == auraType)
+                    ourValue = ourInfo->Effects[eff].BasePoints + 1;
+
+            if (!ourValue)
+                return false;
+
+            // Get the existing aura on target
+            Aura* existing = botAI->GetAura(auraName, unit);
+            if (!existing)
+                return true;  // aura just expired -> can cast
+
+            // Compare by spell rank
+            SpellInfo const* existingInfo = existing->GetSpellInfo();
+            if (!existingInfo)
+                return true;
+
+            int32 existingValue = 0;
+            for (uint8 eff = 0; eff < MAX_SPELL_EFFECTS; ++eff)
+                if (existingInfo->Effects[eff].ApplyAuraName == auraType)
+                    existingValue = existingInfo->Effects[eff].BasePoints + 1;
+
+            return ourValue > existingValue;
+        }
         std::vector<std::string> auras;
     };
 }
