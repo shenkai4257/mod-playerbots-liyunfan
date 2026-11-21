@@ -4,8 +4,8 @@
  * or (at your option) any later version.
  */
 
-#include "PlayerbotAI.h"
 #include "WipeAction.h"
+#include "PlayerbotAI.h"
 
 bool WipeAction::Execute(Event event)
 {
@@ -15,7 +15,9 @@ bool WipeAction::Execute(Event event)
     if (owner != nullptr && master != nullptr && master->GetGUID() != owner->GetGUID())
         return false;
 
-    bot->Kill(bot, bot);
+    if (!bot->IsAlive())
+        return false;
 
+    bot->Kill(bot, bot);
     return true;
 }

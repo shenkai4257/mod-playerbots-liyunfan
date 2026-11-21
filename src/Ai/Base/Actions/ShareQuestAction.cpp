@@ -5,7 +5,6 @@
  */
 
 #include "ShareQuestAction.h"
-
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
@@ -85,13 +84,13 @@ bool AutoShareQuestAction::Execute(Event /*event*/)
             if (player->GetDivider())
                 continue;
 
-            if (auto ai = GET_PLAYERBOT_AI(player))
+            if (auto botAI = GET_PLAYERBOT_AI(player))
             {
                 if (PAI_VALUE(uint8, "free quest log slots") < 15 || !urand(0,5))
                 {
                     WorldPacket packet(CMSG_PUSHQUESTTOPARTY, 20);
                     packet << logQuest;
-                    ai->HandleMasterIncomingPacket(packet);
+                    botAI->HandleMasterIncomingPacket(packet);
                 }
             }
             else
@@ -116,5 +115,5 @@ bool AutoShareQuestAction::Execute(Event /*event*/)
 
 bool AutoShareQuestAction::isUseful()
 {
-    return bot->GetGroup() && !botAI->HasActivePlayerMaster();
+    return bot->GetGroup() && !IsRealPlayer(botAI->GetMaster());
 }

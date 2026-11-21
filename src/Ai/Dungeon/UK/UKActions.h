@@ -1,3 +1,9 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_UKACTIONS_H
 #define PLAYERBOTS_UKACTIONS_H
 
@@ -10,7 +16,7 @@
 class AttackFrostTombAction : public AttackAction
 {
 public:
-    AttackFrostTombAction(PlayerbotAI* ai) : AttackAction(ai, "attack frost tomb") {}
+    AttackFrostTombAction(PlayerbotAI* botAI) : AttackAction(botAI, "attack frost tomb") {}
     bool Execute(Event event) override;
     bool isUseful() override;
 };
@@ -18,21 +24,14 @@ public:
 class AttackDalronnAction : public AttackAction
 {
 public:
-    AttackDalronnAction(PlayerbotAI* ai) : AttackAction(ai, "attack dalronn") {}
-    bool Execute(Event event) override;
-};
-
-class IngvarStopCastingAction : public Action
-{
-public:
-    IngvarStopCastingAction(PlayerbotAI* ai) : Action(ai, "ingvar stop casting") {}
+    AttackDalronnAction(PlayerbotAI* botAI) : AttackAction(botAI, "attack dalronn") {}
     bool Execute(Event event) override;
 };
 
 class IngvarDodgeSmashAction : public MovementAction
 {
 public:
-    IngvarDodgeSmashAction(PlayerbotAI* ai) : MovementAction(ai, "ingvar dodge smash") {}
+    IngvarDodgeSmashAction(PlayerbotAI* botAI) : MovementAction(botAI, "ingvar dodge smash") {}
     bool Execute(Event event) override;
     bool isUseful() override;
 };
@@ -40,7 +39,7 @@ public:
 class IngvarSmashReturnAction : public MovementAction
 {
 public:
-    IngvarSmashReturnAction(PlayerbotAI* ai) : MovementAction(ai, "ingvar smash return") {}
+    IngvarSmashReturnAction(PlayerbotAI* botAI) : MovementAction(botAI, "ingvar smash return") {}
     bool Execute(Event event) override;
     bool isUseful() override;
 };

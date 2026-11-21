@@ -5,7 +5,6 @@
  */
 
 #include "GreetAction.h"
-
 #include "Event.h"
 #include "Playerbots.h"
 
@@ -21,7 +20,7 @@ bool GreetAction::Execute(Event /*event*/)
     if (!player)
         return false;
 
-    if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, player, sPlayerbotAIConfig.sightDistance))
+    if (!bot->HasInArc(CAST_ANGLE_IN_FRONT, player, sPlayerbotAIConfig.SightDistance))
         bot->SetFacingToObject(player);
 
     ObjectGuid oldSel = bot->GetTarget();

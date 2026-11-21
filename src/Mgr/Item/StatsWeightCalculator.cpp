@@ -1,14 +1,13 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
- * and/or modify it under version 3 of the License, or (at your option), any later version.
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
  */
 
 #include "StatsWeightCalculator.h"
-
-#include <memory>
-
 #include "AiFactory.h"
 #include "DBCStores.h"
+#include "Item.h"
 #include "ItemEnchantmentMgr.h"
 #include "ItemTemplate.h"
 #include "ObjectMgr.h"
@@ -20,6 +19,7 @@
 #include "SpellMgr.h"
 #include "StatsCollector.h"
 #include "Unit.h"
+#include <memory>
 
 namespace
 {
@@ -34,6 +34,20 @@ constexpr uint32 SPELL_POLEAXE_SPECIALIZATION = 12785;
 constexpr uint32 SPELL_NERVES_OF_COLD_STEEL = 50138;
 constexpr uint32 SPELL_SHADOW_FOCUS = 15835;
 constexpr uint32 SPELL_ARCANE_FOCUS = 12840;
+
+// Racial weapon specializations, expertise in points, ranged crit in percent
+constexpr float RACIAL_EXPERTISE_ORC_AXE_FIST = 5.0f;
+constexpr float RACIAL_EXPERTISE_HUMAN_SWORD_MACE = 3.0f;
+constexpr float RACIAL_EXPERTISE_DWARF_MACE = 5.0f;
+constexpr float RACIAL_CRIT_PCT_DWARF_GUN = 1.0f;
+constexpr float RACIAL_CRIT_PCT_TROLL_BOW = 1.0f;
+
+// Threat reduction per percent and magic resistance per point, by role
+constexpr float HEALER_THREAT_REDUCTION_WEIGHT = 2.0f;
+constexpr float HEALER_RESISTANCE_WEIGHT = 1.0f;
+constexpr float CASTER_THREAT_REDUCTION_WEIGHT = 4.0f;
+constexpr float CASTER_RESISTANCE_WEIGHT = 0.5f;
+constexpr float TANK_THREAT_REDUCTION_WEIGHT = -4.0f;
 }
 
 template <size_t Size>
@@ -63,7 +77,10 @@ StatsWeightCalculator::StatsWeightCalculator(Player* player) : player_(player)
     cls = player->getClass();
     lvl = player->GetLevel();
     tab = AiFactory::GetPlayerSpecTab(player);
-    collector_ = std::make_unique<StatsCollector>(type_, cls);
+    collector_ = std::make_unique<StatsCollector>(type_, cls, lvl);
+    // By talent spec, like the weights in GenerateBasicWeights(); type_ follows the strategies
+    healSpec_ = PlayerbotAI::IsHeal(player, true);
+    casterSpec_ = !healSpec_ && PlayerbotAI::IsCaster(player, true);
 
     if (cls == CLASS_DEATH_KNIGHT && tab == DEATH_KNIGHT_TAB_UNHOLY)
         hitOverflowType_ = CollectorType::SPELL;
@@ -76,7 +93,6 @@ StatsWeightCalculator::StatsWeightCalculator(Player* player) : player_(player)
 
     enable_overflow_penalty_ = true;
     enable_item_set_bonus_ = true;
-    enable_quality_blend_ = true;
 }
 
 void StatsWeightCalculator::Reset()
@@ -103,8 +119,27 @@ float StatsWeightCalculator::CalculateItem(uint32 itemId, int32 randomPropertyId
     if (randomPropertyIds != 0)
         CalculateRandomProperty(randomPropertyIds, itemId);
 
+    ApplyRacialWeaponBonus(proto);
+
+    bool const checkSetBonus = enable_item_set_bonus_;
+    std::array<float, STATS_TYPE_MAX> setBonusStats{};
+    std::array<float, STATS_TYPE_MAX> setBonusBaseline{};
+
+    // Clamp the item's own stats first so the tier below is valued only on what the player can
+    // still use (a tier's hit at the hit cap must not make the piece look valued).
     if (enable_overflow_penalty_)
         ApplyOverflowPenalty(player_);
+
+    if (checkSetBonus)
+    {
+        for (uint32 i = 0; i < STATS_TYPE_MAX; ++i)
+            setBonusBaseline[i] = collector_->stats[i];
+        CollectItemSetBonus(player_, proto, slot, setBonusStats);
+
+        // Clamp the combined stats: the tier's contribution is capped the same way.
+        if (enable_overflow_penalty_)
+            ApplyOverflowPenalty(player_);
+    }
 
     GenerateWeights(player_);
     for (uint32 i = 0; i < STATS_TYPE_MAX; i++)
@@ -114,30 +149,31 @@ float StatsWeightCalculator::CalculateItem(uint32 itemId, int32 randomPropertyId
 
     CalculateItemTypePenalty(proto);
 
-    if (enable_item_set_bonus_)
+    // Value the tier on the stats that survive the clamp, on top of the item's own clamped
+    // stats. A tier whose weighted delta is ~zero (most raid tier procs only produce
+    // STATS_TYPE_BONUS, capped hit) falls back to the legacy completeness multiplier.
+    float setBonusValue = 0.0f;
+    if (checkSetBonus)
+    {
+        for (uint32 i = 0; i < STATS_TYPE_MAX; ++i)
+            if (i != STATS_TYPE_BONUS)
+                setBonusValue += stats_weights_[i] * (collector_->stats[i] - setBonusBaseline[i]);
+    }
+    bool const setBonusValued = setBonusValue > 0.0001f;
+
+    if (enable_item_set_bonus_ && !setBonusValued)
         CalculateItemSetMod(player_, proto);
 
     CalculateSocketBonus(player_, proto);
 
-    if (enable_quality_blend_)
-    {
-        // Heirloom items scale with player level
-        // Use player level as effective item level for heirlooms - Quality EPIC
-        // Else - Blend with item quality and level for normal items
-        if (proto->Quality == ITEM_QUALITY_HEIRLOOM)
-            weight_ *= PlayerbotFactory::CalcMixedGearScore(lvl, ITEM_QUALITY_EPIC);
-        else
-            weight_ *= PlayerbotFactory::CalcMixedGearScore(proto->ItemLevel, proto->Quality);
-    }
-
     // Apply weapon speed governance if slot is provided and this is a weapon
-    if (sPlayerbotAIConfig.preferredSpecWeapons && slot >= 0 && proto->Class == ITEM_CLASS_WEAPON)
+    if (sPlayerbotAIConfig.PreferredSpecWeapons && slot >= 0 && proto->Class == ITEM_CLASS_WEAPON)
         weight_ *= ApplyPreferredSpecWeapons(proto, slot);
 
     return weight_;
 }
 
-float StatsWeightCalculator::CalculateEnchant(uint32 enchantId)
+float StatsWeightCalculator::CalculateEnchant(uint32 enchantId, uint32 weaponDelay, bool isRanged)
 {
     SpellItemEnchantmentEntry const* enchant = sSpellItemEnchantmentStore.LookupEntry(enchantId);
 
@@ -146,7 +182,7 @@ float StatsWeightCalculator::CalculateEnchant(uint32 enchantId)
 
     Reset();
 
-    collector_->CollectEnchantStats(enchant);
+    collector_->CollectEnchantStats(enchant, 0, weaponDelay, isRanged);
 
     if (enable_overflow_penalty_)
         ApplyOverflowPenalty(player_);
@@ -315,7 +351,7 @@ void StatsWeightCalculator::GenerateBasicWeights(Player* player)
         stats_weights_[STATS_TYPE_CRIT] += 1.5f;
         stats_weights_[STATS_TYPE_HASTE] += 2.1f;
         stats_weights_[STATS_TYPE_EXPERTISE] += 2.1f;
-        stats_weights_[STATS_TYPE_MELEE_DPS] += 15.0f;
+        // Weapon DPS is taken into account as part of Attack Power for Cat Druids.
     }
     else if (cls == CLASS_ROGUE && (tab == ROGUE_TAB_ASSASSINATION || tab == ROGUE_TAB_SUBTLETY))
     {
@@ -518,7 +554,7 @@ void StatsWeightCalculator::GenerateBasicWeights(Player* player)
         stats_weights_[STATS_TYPE_CRIT] += 1.3f;
         stats_weights_[STATS_TYPE_HASTE] += 2.3f;
         stats_weights_[STATS_TYPE_EXPERTISE] += 3.7f;
-        stats_weights_[STATS_TYPE_MELEE_DPS] += 3.0f;
+        // Weapon DPS is taken into account as part of Attack Power for Bear Druids.
     }
 }
 
@@ -559,10 +595,77 @@ void StatsWeightCalculator::GenerateAdditionalWeights(Player* player)
             stats_weights_[STATS_TYPE_SPIRIT] -= 0.4f;
     }
 
+    // Healers would rather survive the hits (Greater Resistance), casters shed threat (Enchant Cloak - Subtlety),
+    // tanks want more threat (Enchant Gloves - Threat). Melee and hunters weigh neither.
+    if (healSpec_)
+    {
+        stats_weights_[STATS_TYPE_THREAT_REDUCTION] += HEALER_THREAT_REDUCTION_WEIGHT;
+        stats_weights_[STATS_TYPE_RESISTANCE] += HEALER_RESISTANCE_WEIGHT;
+    }
+    else if (casterSpec_)
+    {
+        stats_weights_[STATS_TYPE_THREAT_REDUCTION] += CASTER_THREAT_REDUCTION_WEIGHT;
+        stats_weights_[STATS_TYPE_RESISTANCE] += CASTER_RESISTANCE_WEIGHT;
+    }
+    else if (type_ == CollectorType::MELEE_TANK)
+        stats_weights_[STATS_TYPE_THREAT_REDUCTION] += TANK_THREAT_REDUCTION_WEIGHT;
+
     if (pvpSpec_ && !exclude_resilience_)
         stats_weights_[STATS_TYPE_RESILIENCE] += 7.0f;
-    else if (!pvpSpec_)
-        stats_weights_[STATS_TYPE_RESILIENCE] -= 3.0f;
+}
+
+void StatsWeightCalculator::CollectItemSetBonus(Player* player, ItemTemplate const* proto, int32 slot,
+                                                std::array<float, STATS_TYPE_MAX>& setBonusStats)
+{
+    uint32 itemSet = proto->ItemSet;
+    if (!itemSet)
+        return;
+
+    ItemSetEntry const* setEntry = sItemSetStore.LookupEntry(itemSet);
+    if (!setEntry)
+        return;
+
+    // Pieces worn while the candidate is evaluated: the item currently in the candidate's
+    // slot (if it is from the same set) is replaced, so it must not count. The candidate
+    // itself adds one piece, so only the tier at (worn + 1) is newly activated.
+    uint32 worn = 0;
+    for (ItemSetEffect* eff : player->ItemSetEff)
+    {
+        if (eff && eff->setid == itemSet)
+        {
+            worn = eff->item_count;
+            break;
+        }
+    }
+
+    if (worn && slot >= 0 && slot < EQUIPMENT_SLOT_END)
+    {
+        if (Item* oldItem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, uint8(slot)))
+        {
+            if (oldItem->GetTemplate()->ItemSet == itemSet)
+                --worn;
+        }
+    }
+
+    // Value only the tier this item switches on. Tiers that are already active stay
+    // credited to the item providing them, so candidates are compared on their delta.
+    // Keep the stats the tier adds and let the caller weigh them after GenerateWeights.
+    for (uint32 j = 0; j < MAX_ITEM_SET_SPELLS; ++j)
+    {
+        uint32 threshold = setEntry->items_to_triggerspell[j];
+        uint32 spellId = setEntry->spells[j];
+        if (!threshold || !spellId || threshold != worn + 1)
+            continue;
+
+        std::array<float, STATS_TYPE_MAX> before{};
+        for (uint32 i = 0; i < STATS_TYPE_MAX; ++i)
+            before[i] = collector_->stats[i];
+
+        collector_->CollectSpellStats(spellId, 1.0f, Milliseconds(0));
+
+        for (uint32 i = 0; i < STATS_TYPE_MAX; ++i)
+            setBonusStats[i] += collector_->stats[i] - before[i];
+    }
 }
 
 void StatsWeightCalculator::CalculateItemSetMod(Player* player, ItemTemplate const* proto)
@@ -583,7 +686,7 @@ void StatsWeightCalculator::CalculateItemSetMod(Player* player, ItemTemplate con
             if (itemSet != setId)
                 continue;
 
-            const ItemSetEntry* setEntry = sItemSetStore.LookupEntry(setId);
+            ItemSetEntry const* setEntry = sItemSetStore.LookupEntry(setId);
             if (!setEntry)
                 continue;
 
@@ -597,7 +700,7 @@ void StatsWeightCalculator::CalculateItemSetMod(Player* player, ItemTemplate con
             }
             else
             {
-                multiplier = 1.0f;  // All item set effect has been triggerred
+                multiplier = 1.0f;  // All item set effect has been triggered
             }
             break;
         }
@@ -1012,4 +1115,46 @@ float StatsWeightCalculator::ApplyPreferredSpecWeapons(ItemTemplate const* proto
     }
 
     return 1.0f;
+}
+
+void StatsWeightCalculator::ApplyRacialWeaponBonus(ItemTemplate const* proto)
+{
+    if (proto->Class != ITEM_CLASS_WEAPON)
+        return;
+
+    uint32 const subClass = proto->SubClass;
+    float expertisePoints = 0.0f;
+    float critPct = 0.0f;
+
+    switch (player_->getRace(true))
+    {
+        case RACE_ORC:  // Orc Axe Specialization
+            if (subClass == ITEM_SUBCLASS_WEAPON_AXE || subClass == ITEM_SUBCLASS_WEAPON_AXE2 ||
+                subClass == ITEM_SUBCLASS_WEAPON_FIST)
+                expertisePoints = RACIAL_EXPERTISE_ORC_AXE_FIST;
+            break;
+        case RACE_HUMAN:  // Human Sword & Mace Specialization
+            if (subClass == ITEM_SUBCLASS_WEAPON_SWORD || subClass == ITEM_SUBCLASS_WEAPON_SWORD2 ||
+                subClass == ITEM_SUBCLASS_WEAPON_MACE || subClass == ITEM_SUBCLASS_WEAPON_MACE2)
+                expertisePoints = RACIAL_EXPERTISE_HUMAN_SWORD_MACE;
+            break;
+        case RACE_DWARF:  // Dwarf Mace Specialization + Gun Specialization
+            if (subClass == ITEM_SUBCLASS_WEAPON_MACE || subClass == ITEM_SUBCLASS_WEAPON_MACE2)
+                expertisePoints = RACIAL_EXPERTISE_DWARF_MACE;
+            else if (subClass == ITEM_SUBCLASS_WEAPON_GUN)
+                critPct = RACIAL_CRIT_PCT_DWARF_GUN;
+            break;
+        case RACE_TROLL:  // Troll Bow Specialization
+            if (subClass == ITEM_SUBCLASS_WEAPON_BOW)
+                critPct = RACIAL_CRIT_PCT_TROLL_BOW;
+            break;
+        default:
+            return;
+    }
+
+    if (expertisePoints > 0.0f && (type_ & CollectorType::MELEE))
+        collector_->stats[STATS_TYPE_EXPERTISE] += expertisePoints / player_->GetRatingMultiplier(CR_EXPERTISE);
+
+    if (critPct > 0.0f && (type_ & CollectorType::RANGED))
+        collector_->stats[STATS_TYPE_CRIT] += critPct / player_->GetRatingMultiplier(CR_CRIT_RANGED);
 }

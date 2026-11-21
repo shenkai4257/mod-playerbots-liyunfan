@@ -4,17 +4,16 @@
  * or (at your option) any later version.
  */
 
+#include "NearestNpcsValue.h"
+#include "ObjectAccessor.h"
+#include "Playerbots.h"
+#include "RSActions.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <map>
 #include <utility>
 #include <vector>
-
-#include "NearestNpcsValue.h"
-#include "ObjectAccessor.h"
-#include "Playerbots.h"
-#include "RSActions.h"
 
 namespace
 {
@@ -66,7 +65,7 @@ namespace
 
 bool RsBaltharusBrandAction::Execute(Event )
 {
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         return false;
 
     uint32 const instanceId = bot->GetInstanceId();
@@ -123,7 +122,7 @@ bool RsBaltharusBrandAction::Execute(Event )
     }
 
     constexpr float MAX_NON_MARKED_RANGED_DISTANCE = 35.0f;
-    bool const isNonMarkedRanged = (myMark == nullptr) && (!botAI->IsMelee(bot));
+    bool const isNonMarkedRanged = (myMark == nullptr) && (!PlayerbotAI::IsMelee(bot));
 
     auto minDistFrom = [&](float x, float y) -> float
     {
@@ -324,7 +323,7 @@ bool RsBaltharusBrandAction::Execute(Event )
 
 bool RsBaltharusHealerPositionAction::Execute(Event )
 {
-    if (!botAI->IsHeal(bot) || botAI->IsTank(bot))
+    if (!PlayerbotAI::IsHeal(bot) || PlayerbotAI::IsTank(bot))
         return false;
 
     if (bot->HasAura(SPELL_ENERVATING_BRAND))
@@ -343,7 +342,7 @@ bool RsBaltharusHealerPositionAction::Execute(Event )
 
 bool RsBaltharusAvoidFrontAction::Execute(Event )
 {
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         return false;
 
     std::vector<Unit*> const casters = RsBaltharusCasters(botAI);
@@ -377,7 +376,7 @@ bool RsBaltharusAvoidFrontAction::Execute(Event )
     if (nearestCaster > 20.0f)
         return false;
 
-    if (botAI->IsMelee(bot))
+    if (PlayerbotAI::IsMelee(bot))
     {
         float const flankDist = 4.0f;
         float const settleDist = 2.0f;
@@ -457,7 +456,7 @@ bool RsBaltharusTankPositionAction::HoldAt(Position const& spot, Unit* faceAwayF
 
 bool RsBaltharusTankPositionAction::Execute(Event )
 {
-    if (!botAI->IsTank(bot))
+    if (!PlayerbotAI::IsTank(bot))
         return false;
 
     if (!(bot->HasAura(RS_SPELL_PAIN_SUPPRESION)))
@@ -467,7 +466,7 @@ bool RsBaltharusTankPositionAction::Execute(Event )
     if (!boss)
         return false;
 
-    bool const isMainTank = botAI->IsMainTank(bot);
+    bool const isMainTank = PlayerbotAI::IsMainTank(bot);
 
     Player* assistTankPlayer = nullptr;
     Player* mainTankPlayer = nullptr;
@@ -481,13 +480,13 @@ bool RsBaltharusTankPositionAction::Execute(Event )
             if (!member || !member->IsAlive())
                 continue;
 
-            if (!assistTankPlayer && botAI->IsAssistTank(member))
+            if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
             {
                 assistTankPlayer = member;
                 assistTankAlive = true;
             }
 
-            if (!mainTankPlayer && botAI->IsMainTank(member))
+            if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
             {
                 mainTankPlayer = member;
             }
@@ -553,7 +552,7 @@ bool RsBaltharusTankPositionAction::Execute(Event )
         return HoldAt(RS_BALTHARUS_TANK_POSITION, boss);
     }
 
-    if (botAI->IsAssistTank(bot))
+    if (PlayerbotAI::IsAssistTank(bot))
     {
         if (clones.empty())
             return false;

@@ -1,9 +1,14 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_HOLTRIGGERCONTEXT_H
 #define PLAYERBOTS_HOLTRIGGERCONTEXT_H
 
-#include "NamedObjectContext.h"
-#include "AiObjectContext.h"
 #include "HoLTriggers.h"
+#include "NamedObjectContext.h"
 
 class WotlkDungeonHoLTriggerContext : public NamedObjectContext<Trigger>
 {
@@ -21,15 +26,15 @@ class WotlkDungeonHoLTriggerContext : public NamedObjectContext<Trigger>
             creators["lightning nova"] = &WotlkDungeonHoLTriggerContext::lightning_nova;
         }
     private:
-        static Trigger* stormforged_lieutenant(PlayerbotAI* ai) { return new StormforgedLieutenantTrigger(ai); }
-        static Trigger* bjarngrim_whirlwind(PlayerbotAI* ai) { return new BjarngrimWhirlwindTrigger(ai); }
-        static Trigger* volkhan(PlayerbotAI* ai) { return new VolkhanTrigger(ai); }
-        static Trigger* static_overload(PlayerbotAI* ai) { return new IonarStaticOverloadTrigger(ai); }
-        static Trigger* ball_lightning(PlayerbotAI* ai) { return new IonarBallLightningTrigger(ai); }
-        static Trigger* ionar_tank_aggro(PlayerbotAI* ai) { return new IonarTankAggroTrigger(ai); }
-        static Trigger* ionar_disperse(PlayerbotAI* ai) { return new IonarDisperseTrigger(ai); }
-        static Trigger* loken_ranged(PlayerbotAI* ai) { return new LokenRangedTrigger(ai); }
-        static Trigger* lightning_nova(PlayerbotAI* ai) { return new LokenLightningNovaTrigger(ai); }
+        static Trigger* stormforged_lieutenant(PlayerbotAI* botAI) { return new StormforgedLieutenantTrigger(botAI); }
+        static Trigger* bjarngrim_whirlwind(PlayerbotAI* botAI) { return new BjarngrimWhirlwindTrigger(botAI); }
+        static Trigger* volkhan(PlayerbotAI* botAI) { return new VolkhanTrigger(botAI); }
+        static Trigger* static_overload(PlayerbotAI* botAI) { return new IonarStaticOverloadTrigger(botAI); }
+        static Trigger* ball_lightning(PlayerbotAI* botAI) { return new IonarBallLightningTrigger(botAI); }
+        static Trigger* ionar_tank_aggro(PlayerbotAI* botAI) { return new IonarTankAggroTrigger(botAI); }
+        static Trigger* ionar_disperse(PlayerbotAI* botAI) { return new IonarDisperseTrigger(botAI); }
+        static Trigger* loken_ranged(PlayerbotAI* botAI) { return new LokenRangedTrigger(botAI); }
+        static Trigger* lightning_nova(PlayerbotAI* botAI) { return new LokenLightningNovaTrigger(botAI); }
 };
 
 #endif

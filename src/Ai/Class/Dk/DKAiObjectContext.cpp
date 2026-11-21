@@ -5,7 +5,6 @@
  */
 
 #include "DKAiObjectContext.h"
-
 #include "BloodDKStrategy.h"
 #include "DKActions.h"
 #include "DKTriggers.h"
@@ -46,10 +45,10 @@ public:
     }
 
 private:
-    static Strategy* frost_dps(PlayerbotAI* botAI) { return new FrostDKStrategy(botAI); }
-    static Strategy* unholy_dps(PlayerbotAI* botAI) { return new UnholyDKStrategy(botAI); }
     static Strategy* tank(PlayerbotAI* botAI) { return new BloodDKStrategy(botAI); }
     static Strategy* blood(PlayerbotAI* botAI) { return new BloodDKStrategy(botAI); }
+    static Strategy* frost_dps(PlayerbotAI* botAI) { return new FrostDKStrategy(botAI); }
+    static Strategy* unholy_dps(PlayerbotAI* botAI) { return new UnholyDKStrategy(botAI); }
 };
 
 class DeathKnightTriggerFactoryInternal : public NamedObjectContext<Trigger>

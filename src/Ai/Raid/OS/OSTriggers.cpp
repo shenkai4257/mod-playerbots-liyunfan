@@ -1,5 +1,10 @@
-#include "OSTriggers.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "OSTriggers.h"
 #include "SharedDefines.h"
 
 bool SartharionTankTrigger::IsActive()
@@ -7,12 +12,12 @@ bool SartharionTankTrigger::IsActive()
     Unit* boss = AI_VALUE2(Unit*, "find target", "sartharion");
     if (!boss) { return false; }
 
-    return botAI->IsTank(bot);
+    return PlayerbotAI::IsTank(bot);
 }
 
 bool FlameTsunamiTrigger::IsActive()
 {
-    if (botAI->IsTank(bot)) { return false; }
+    if (PlayerbotAI::IsTank(bot)) { return false; }
 
     Unit* boss = AI_VALUE2(Unit*, "find target", "sartharion");
     if (!boss) { return false; }
@@ -59,12 +64,12 @@ bool SartharionDpsTrigger::IsActive()
     Unit* boss = AI_VALUE2(Unit*, "find target", "sartharion");
     if (!boss) { return false; }
 
-    return botAI->IsDps(bot);
+    return PlayerbotAI::IsDps(bot);
 }
 
 bool SartharionMeleePositioningTrigger::IsActive()
 {
-    if (!botAI->IsMelee(bot) || !botAI->IsDps(bot)) { return false; }
+    if (!PlayerbotAI::IsMelee(bot) || !PlayerbotAI::IsDps(bot)) { return false; }
 
     Unit* boss = AI_VALUE2(Unit*, "find target", "sartharion");
     if (!boss) { return false; }
@@ -78,19 +83,19 @@ bool SartharionMeleePositioningTrigger::IsActive()
 
 bool TwilightPortalEnterTrigger::IsActive()
 {
-    if (botAI->IsMainTank(bot) || botAI->IsAssistHealOfIndex(bot, 0)) { return false; }
+    if (PlayerbotAI::IsMainTank(bot) || PlayerbotAI::IsAssistHealOfIndex(bot, 0)) { return false; }
 
     // In 25-man, take two healers in. Otherwise just take one
     // if (bot->GetRaidDifficulty() == RAID_DIFFICULTY_25MAN_NORMAL)
     // {
-    //     if (botAI->IsAssistHealOfIndex(bot, 0) || botAI->IsAssistHealOfIndex(bot, 1))
+    //     if (PlayerbotAI::IsAssistHealOfIndex(bot, 0) || PlayerbotAI::IsAssistHealOfIndex(bot, 1))
     //     {
     //         return false;
     //     }
     // }
     // else
     // {
-    //     if (botAI->IsAssistHealOfIndex(bot, 0))
+    //     if (PlayerbotAI::IsAssistHealOfIndex(bot, 0))
     //     {
     //         return false;
     //     }

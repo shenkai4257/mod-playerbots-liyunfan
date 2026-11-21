@@ -40,11 +40,12 @@ void WorldPacketHandlerStrategy::InitTriggers(std::vector<TriggerNode*>& trigger
     triggers.push_back(new TriggerNode("loot response", { NextAction("store loot", relevance) }));
     triggers.push_back(new TriggerNode("item push result", { NextAction("unlock items", relevance),
                                                                                 NextAction("open items", relevance),
+                                                                                NextAction("use start quest item", relevance),
                                                                                 NextAction("query item usage", relevance),
                                                                                 NextAction("equip upgrades packet action", relevance) }));
     triggers.push_back(new TriggerNode("item push result", { NextAction("quest item push result", relevance) }));
     triggers.push_back(new TriggerNode("loot roll won", { NextAction("equip upgrades packet action", relevance) }));
-    triggers.push_back(new TriggerNode("ready check finished", { NextAction("finish ready check", relevance) }));
+    triggers.push_back(new TriggerNode("ready check finished", { NextAction("ready check finished", relevance) }));
     // triggers.push_back(new TriggerNode("often", { NextAction("security check", relevance), NextAction("check mail", relevance) }));
     triggers.push_back(new TriggerNode("guild invite", { NextAction("guild accept", relevance) }));
     triggers.push_back(new TriggerNode("petition offer", { NextAction("petition sign", relevance) }));

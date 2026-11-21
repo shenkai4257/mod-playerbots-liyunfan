@@ -1,12 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "AutoMaintenanceOnLevelupAction.h"
-
-#include "SpellMgr.h"
-
+#include "BroadcastHelper.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
-#include "BroadcastHelper.h"
+#include "SpellMgr.h"
 
 bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 {
@@ -20,10 +24,10 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 
 void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
 {
-    if (!sPlayerbotAIConfig.autoTeleportForLevel || !sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (!sPlayerbotAIConfig.AutoTeleportForLevel || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return;
 
-    if (botAI->HasRealPlayerMaster())
+    if (botAI->HasGameClientMaster())
         return;
 
     sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
@@ -32,14 +36,16 @@ void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
 
 void AutoMaintenanceOnLevelupAction::AutoPickTalents()
 {
-    if (!sPlayerbotAIConfig.autoPickTalents || !sRandomPlayerbotMgr.IsRandomBot(bot))
+    bool const isRandomBot = sRandomPlayerbotMgr.IsRandomBot(bot);
+    if (!(isRandomBot ? sPlayerbotAIConfig.AutoPickTalents
+                      : sPlayerbotAIConfig.AutoPickTalentsForPlayerControlledBots))
         return;
 
     if (bot->GetFreeTalentPoints() <= 0)
         return;
 
     PlayerbotFactory factory(bot, bot->GetLevel());
-    factory.InitTalentsTree(true, true, true);
+    factory.InitTalentsTree(true, true, isRandomBot);
     factory.InitPetTalents();
 }
 
@@ -64,10 +70,10 @@ void AutoMaintenanceOnLevelupAction::AutoLearnSpell()
 void AutoMaintenanceOnLevelupAction::LearnSpells(std::ostringstream* out)
 {
     BroadcastHelper::BroadcastLevelup(botAI, bot);
-    if (sPlayerbotAIConfig.autoLearnTrainerSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (sPlayerbotAIConfig.AutoLearnTrainerSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
         LearnTrainerSpells(out);
 
-    if (sPlayerbotAIConfig.autoLearnQuestSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (sPlayerbotAIConfig.AutoLearnQuestSpells && sRandomPlayerbotMgr.IsRandomBot(bot))
         LearnQuestSpells(out);
 }
 
@@ -169,6 +175,6 @@ void AutoMaintenanceOnLevelupAction::AutoUpgradeEquip()
     factory.InitConsumables();
     factory.InitPotions();
 
-    if (sPlayerbotAIConfig.autoUpgradeEquip)
+    if (sPlayerbotAIConfig.AutoUpgradeEquip)
         factory.InitEquipment(true);
 }

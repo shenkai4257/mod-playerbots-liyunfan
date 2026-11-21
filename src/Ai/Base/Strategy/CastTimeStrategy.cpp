@@ -5,7 +5,6 @@
  */
 
 #include "CastTimeStrategy.h"
-
 #include "GenericSpellActions.h"
 #include "Playerbots.h"
 
@@ -17,7 +16,7 @@ float CastTimeMultiplier::GetValue(Action* action)
     if (!action->GetTarget() || action->GetTarget() != AI_VALUE(Unit*, "current target"))
         return 1.0f;
 
-    if (/*targetHealth < sPlayerbotAIConfig.criticalHealth && */ dynamic_cast<CastSpellAction*>(action))
+    if (/*targetHealth < sPlayerbotAIConfig.CriticalHealth && */ dynamic_cast<CastSpellAction*>(action))
     {
         CastSpellAction* spellAction = dynamic_cast<CastSpellAction*>(action);
         uint32 spellId = AI_VALUE2(uint32, "spell id", spellAction->getSpell());
@@ -46,7 +45,8 @@ float CastTimeMultiplier::GetValue(Action* action)
             return 1.0f;
         }
 
-        if (castTime > (1000 * target->GetHealth() / AI_VALUE(float, "estimated group dps")))
+        if (castTime >
+            (IN_MILLISECONDS * static_cast<float>(target->GetHealth()) / AI_VALUE(float, "estimated group dps")))
         {
             return 0.1f;
         }

@@ -1,9 +1,14 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_AKTRIGGERCONTEXT_H
 #define PLAYERBOTS_AKTRIGGERCONTEXT_H
 
-#include "NamedObjectContext.h"
-#include "AiObjectContext.h"
 #include "AKTriggers.h"
+#include "NamedObjectContext.h"
 
 class WotlkDungeonOKTriggerContext : public NamedObjectContext<Trigger>
 {
@@ -15,9 +20,9 @@ class WotlkDungeonOKTriggerContext : public NamedObjectContext<Trigger>
             creators["shadow crash"] = &WotlkDungeonOKTriggerContext::shadow_crash;
         }
     private:
-        static Trigger* nadox_guardian(PlayerbotAI* ai) { return new NadoxGuardianTrigger(ai); }
-        static Trigger* jedoga_volunteer(PlayerbotAI* ai) { return new JedogaVolunteerTrigger(ai); }
-        static Trigger* shadow_crash(PlayerbotAI* ai) { return new ShadowCrashTrigger(ai); }
+        static Trigger* nadox_guardian(PlayerbotAI* botAI) { return new NadoxGuardianTrigger(botAI); }
+        static Trigger* jedoga_volunteer(PlayerbotAI* botAI) { return new JedogaVolunteerTrigger(botAI); }
+        static Trigger* shadow_crash(PlayerbotAI* botAI) { return new ShadowCrashTrigger(botAI); }
 };
 
 #endif

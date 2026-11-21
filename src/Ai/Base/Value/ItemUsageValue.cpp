@@ -5,7 +5,6 @@
  */
 
 #include "ItemUsageValue.h"
-
 #include "AiFactory.h"
 #include "ChatHelper.h"
 #include "GuildTaskMgr.h"
@@ -14,9 +13,14 @@
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
 #include "Playerbots.h"
+#include "QuestAction.h"
 #include "RandomItemMgr.h"
 #include "ServerFacade.h"
 #include "StatsWeightCalculator.h"
+
+#include <unordered_set>
+
+static bool IsRoguePoison(ItemTemplate const* proto);
 
 ItemUsage ItemUsageValue::Calculate()
 {
@@ -30,10 +34,15 @@ ItemUsage ItemUsageValue::Calculate()
     if (!proto)
         return ITEM_USAGE_NONE;
 
-    if (botAI->HasActivePlayerMaster())
+    if (IsRealPlayer(botAI->GetMaster()))
     {
         if (IsItemUsefulForSkill(proto) || IsItemNeededForSkill(proto))
             return ITEM_USAGE_SKILL;
+
+        if ((proto->Class == ITEM_CLASS_TRADE_GOODS || proto->Class == ITEM_CLASS_MISC ||
+             proto->Class == ITEM_CLASS_REAGENT) &&
+            IsItemNeededForClassSpell(proto))
+            return ITEM_USAGE_KEEP;
     }
     else
     {
@@ -53,7 +62,7 @@ ItemUsage ItemUsageValue::Calculate()
                 if (bot->HasSpell(proto->Spells[2].SpellId))
                     needItem = false;
                 else
-                    needItem = bot->BotCanUseItem(proto) == EQUIP_ERR_OK;
+                    needItem = bot->CanUseItem(proto) == EQUIP_ERR_OK;
             }
         }
 
@@ -62,8 +71,8 @@ ItemUsage ItemUsageValue::Calculate()
             float stacks = CurrentStacks(proto);
             if (stacks < 1)
                 return ITEM_USAGE_SKILL;  // Buy more.
-            if (stacks < 2)
-                return ITEM_USAGE_KEEP;  // Keep current amount.
+            if (stacks <= 2)
+                return ITEM_USAGE_KEEP;
         }
     }
 
@@ -95,6 +104,11 @@ ItemUsage ItemUsageValue::Calculate()
     if (bot->GetGuildId() && GuildTaskMgr::instance().IsGuildTaskItem(itemId, bot->GetGuildId()))
         return ITEM_USAGE_GUILD_TASK;
 
+    // Starters the bot can take stay in the bags and are used from there; the core deletes the
+    // starting item on accept unless the quest also requires it, so they are never equipped.
+    if (IsStartQuestItemUsefulFor(bot, proto))
+        return ITEM_USAGE_QUEST;
+
     ItemUsage equip = QueryItemUsageForEquip(proto, randomPropertyId);
     if (equip != ITEM_USAGE_NONE)
         return equip;
@@ -117,9 +131,8 @@ ItemUsage ItemUsageValue::Calculate()
     }
 
     Player* master = botAI->GetMaster();
-    bool isSelfBot = (master == bot);
     bool botNeedsItemForQuest = IsItemUsefulForQuest(bot, proto);
-    bool masterNeedsItemForQuest = master && sPlayerbotAIConfig.syncQuestWithPlayer && IsItemUsefulForQuest(master, proto);
+    bool masterNeedsItemForQuest = master && sPlayerbotAIConfig.SyncQuestWithPlayer && IsItemUsefulForQuest(master, proto);
 
     // Identify the source of loot
     LootObject lootObject = AI_VALUE(LootObject, "loot target");
@@ -134,13 +147,33 @@ ItemUsage ItemUsageValue::Calculate()
     if (isLootFromItem && botNeedsItemForQuest)
         return ITEM_USAGE_QUEST;
 
-    // If the bot is NOT acting alone and the master needs this quest item, defer to the master
-    if (!isSelfBot && masterNeedsItemForQuest)
+    // If this is not a SelfBot acting alone and the master needs this quest item, defer to the master
+    if (!IsSelfBot(bot) && masterNeedsItemForQuest)
         return ITEM_USAGE_NONE;
 
     // If the bot itself needs the item for a quest, allow looting
     if (botNeedsItemForQuest)
         return ITEM_USAGE_QUEST;
+
+    // If the bot has the exact quest requirement amount, keep it to prevent a sell/buy cycle
+    for (auto const& questPair : botAI->GetCurrentQuestsRequiringItemId(proto->ItemId))
+    {
+        Quest const* quest = questPair.first;
+        if (!quest)
+            continue;
+
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
+        {
+            if (quest->RequiredItemId[i] != proto->ItemId)
+                continue;
+
+            uint32 currentCount = AI_VALUE2(uint32, "item count", proto->Name1);
+            uint32 requiredCount = quest->RequiredItemCount[i];
+
+            if (currentCount == requiredCount)
+                return ITEM_USAGE_KEEP;  // Have exact amount needed, keep it
+        }
+    }
 
     if (proto->Class == ITEM_CLASS_PROJECTILE && bot->CanUseItem(proto) == EQUIP_ERR_OK)
     {
@@ -148,6 +181,47 @@ ItemUsage ItemUsageValue::Calculate()
         if (ammoUsage != ITEM_USAGE_NONE)
             return ammoUsage;
     }
+
+    // Keep only the best stone/oil per weapon and the best poison per family; obsolete or
+    // mismatched enhancements fall through to VENDOR/AH.
+    if (proto->Class == ITEM_CLASS_CONSUMABLE && IsTemporaryWeaponEnchantment(proto) &&
+        bot->CanUseItem(proto) == EQUIP_ERR_OK)
+    {
+        // Rogue poisons only: stones/oils share consumable subclass 8 but use family-less spells,
+        // so they take the weapon branch below instead of being sold as obsolete poisons.
+        if (IsRoguePoison(proto))
+        {
+            if (IsBestPoison(proto))
+                return ITEM_USAGE_KEEP;
+        }
+        else
+        {
+            Item* mainHand = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
+            Item* offHand = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
+
+            bool isBest = false;
+            if (mainHand)
+            {
+                if (Item* stone = botAI->FindStoneFor(mainHand))
+                    isBest = stone->GetEntry() == proto->ItemId;
+                if (!isBest)
+                    if (Item* oil = botAI->FindOilFor(mainHand))
+                        isBest = oil->GetEntry() == proto->ItemId;
+            }
+            if (!isBest && offHand)
+            {
+                if (Item* stone = botAI->FindStoneFor(offHand))
+                    isBest = stone->GetEntry() == proto->ItemId;
+                if (!isBest)
+                    if (Item* oil = botAI->FindOilFor(offHand))
+                        isBest = oil->GetEntry() == proto->ItemId;
+            }
+
+            if (isBest)
+                return CurrentStacks(proto) < 1 ? ITEM_USAGE_USE : ITEM_USAGE_KEEP;
+        }
+    }
+
     // Need to add something like free bagspace or item value.
     if (proto->SellPrice > 0)
     {
@@ -162,13 +236,13 @@ ItemUsage ItemUsageValue::Calculate()
 
 ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, int32 randomPropertyId)
 {
-    if (bot->BotCanUseItem(itemProto) != EQUIP_ERR_OK)
+    if (bot->CanUseItem(itemProto) != EQUIP_ERR_OK)
         return ITEM_USAGE_NONE;
 
     if (itemProto->InventoryType == INVTYPE_NON_EQUIP)
         return ITEM_USAGE_NONE;
 
-    Item* pItem = Item::CreateItem(itemProto->ItemId, 1, bot, false, 0, true);
+    Item* pItem = Item::CreateItem(itemProto->ItemId, 1, bot);
     if (!pItem)
         return ITEM_USAGE_NONE;
 
@@ -305,7 +379,7 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
         {
             // uint32 oldStatWeight = sRandomItemMgr.GetLiveStatWeight(bot, oldItemProto->ItemId);
             if (itemScore || oldScore)
-                shouldEquipInSlot = itemScore > oldScore * sPlayerbotAIConfig.equipUpgradeThreshold;
+                shouldEquipInSlot = itemScore > oldScore * sPlayerbotAIConfig.EquipUpgradeThreshold;
         }
 
         // Bigger quiver
@@ -359,9 +433,9 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
                             return ITEM_USAGE_REPLACE;
                         else
                             return ITEM_USAGE_BAD_EQUIP;
-
-                        break;
                     }
+                    // A lower-subclass armor piece is handled by the default case below.
+                    [[fallthrough]];
                 default:
                 {
                     if (itemIsBroken && !oldItemIsBroken)
@@ -383,7 +457,7 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
 
 ItemUsage ItemUsageValue::QueryItemUsageForAmmo(ItemTemplate const* proto)
 {
-    if (bot->getClass() != CLASS_HUNTER || bot->getClass() != CLASS_ROGUE || bot->getClass() != CLASS_WARRIOR)
+    if (bot->getClass() != CLASS_HUNTER && bot->getClass() != CLASS_ROGUE && bot->getClass() != CLASS_WARRIOR)
         return ITEM_USAGE_NONE;
 
     Item* rangedWeapon = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
@@ -483,6 +557,12 @@ bool ItemUsageValue::IsItemUsefulForQuest(Player* player, ItemTemplate const* pr
     if (!botAI)
         return false;
 
+    // Core loot gating predicate: also covers quest source items (ItemDrop,
+    // e.g. quest keys). The local objective check below is kept because this
+    // predicate skips non-raid quests for raid groups.
+    if (player->HasQuestForItem(proto->ItemId))
+        return true;
+
     for (uint8 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
     {
         uint32 entry = player->GetQuestSlotQuestId(slot);
@@ -536,6 +616,16 @@ bool ItemUsageValue::IsItemUsefulForQuest(Player* player, ItemTemplate const* pr
     }
 
     return false; // Item is not useful for any active quests
+}
+
+bool ItemUsageValue::IsStartQuestItemUsefulFor(Player* player, ItemTemplate const* proto)
+{
+    if (!proto->StartQuest)
+        return false;
+
+    Quest const* quest = sObjectMgr->GetQuestTemplate(proto->StartQuest);
+    return quest && player->GetQuestStatus(proto->StartQuest) == QUEST_STATUS_NONE &&
+        QuestAction::CanAcceptQuest(player, quest);
 }
 
 bool ItemUsageValue::IsItemNeededForSkill(ItemTemplate const* proto)
@@ -670,8 +760,43 @@ bool ItemUsageValue::IsItemUsefulForSkill(ItemTemplate const* proto)
     return false;
 }
 
+namespace
+{
+    // Crafting chains can be cyclic: Remember which items are already being evaluated
+    // further up the stack and stop as soon as a cycle closes.
+    thread_local std::unordered_set<uint32> itemsBeingEvaluated;
+
+    class UsefullSpellRecursionGuard
+    {
+    public:
+        explicit UsefullSpellRecursionGuard(uint32 itemId)
+            : _itemId(itemId), _entered(itemsBeingEvaluated.insert(itemId).second)
+        {
+        }
+
+        ~UsefullSpellRecursionGuard()
+        {
+            if (_entered)
+                itemsBeingEvaluated.erase(_itemId);
+        }
+
+        UsefullSpellRecursionGuard(UsefullSpellRecursionGuard const&) = delete;
+        UsefullSpellRecursionGuard& operator=(UsefullSpellRecursionGuard const&) = delete;
+
+        bool Entered() const { return _entered; }
+
+    private:
+        uint32 _itemId;
+        bool _entered;
+    };
+}
+
 bool ItemUsageValue::IsItemNeededForUsefullSpell(ItemTemplate const* proto, bool checkAllReagents)
 {
+    UsefullSpellRecursionGuard guard(proto->ItemId);
+    if (!guard.Entered())
+        return false;
+
     for (auto spellId : SpellsUsingItem(proto->ItemId, bot))
     {
         SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
@@ -680,6 +805,11 @@ bool ItemUsageValue::IsItemNeededForUsefullSpell(ItemTemplate const* proto, bool
 
         if (checkAllReagents && !HasItemsNeededForSpell(spellId, proto))
             continue;
+
+        // Class spells consume reagents without creating items; generic profession spells
+        // must not make every trainer recipe's reagent worth hoarding.
+        if (spellInfo->SpellFamilyName != SPELLFAMILY_GENERIC)
+            return true;
 
         if (SpellGivesSkillUp(spellId, bot))
             return true;
@@ -700,6 +830,85 @@ bool ItemUsageValue::IsItemNeededForUsefullSpell(ItemTemplate const* proto, bool
     return false;
 }
 
+bool ItemUsageValue::IsItemNeededForClassSpell(ItemTemplate const* proto)
+{
+    for (uint32 spellId : SpellsUsingItem(proto->ItemId, bot))
+    {
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (spellInfo && spellInfo->SpellFamilyName != SPELLFAMILY_GENERIC)
+            return true;
+    }
+
+    return false;
+}
+
+static SpellInfo const* GetTemporaryEnchantSpell(ItemTemplate const* proto)
+{
+    for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+    {
+        uint32 spellId = proto->Spells[i].SpellId;
+        if (!spellId)
+            continue;
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        if (!spellInfo)
+            continue;
+
+        for (uint8 j = 0; j < MAX_SPELL_EFFECTS; ++j)
+            if (spellInfo->Effects[j].Effect == SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY)
+                return spellInfo;
+    }
+
+    return nullptr;
+}
+
+// True for rogue poisons: their temporary enchant spell is the rogue family and carries a
+// per-poison family flag (stones/oils share the subclass but use family-less spells).
+static bool IsRoguePoison(ItemTemplate const* proto)
+{
+    if (proto->SubClass != ITEM_SUBCLASS_CONSUMABLE_OTHER)
+        return false;
+
+    SpellInfo const* useSpell = GetTemporaryEnchantSpell(proto);
+    return useSpell && useSpell->SpellFamilyName == SPELLFAMILY_ROGUE && !useSpell->SpellFamilyFlags.IsEqual(0, 0, 0);
+}
+
+bool ItemUsageValue::IsTemporaryWeaponEnchantment(ItemTemplate const* proto)
+{
+    return GetTemporaryEnchantSpell(proto) != nullptr;
+}
+
+bool ItemUsageValue::IsBestPoison(ItemTemplate const* proto)
+{
+    // Family comes from the use spell's SpellFamilyFlags (per poison type), not item ids.
+    if (!IsRoguePoison(proto))
+        return false;
+
+    SpellInfo const* useSpell = GetTemporaryEnchantSpell(proto);
+
+    // Keep only the highest-item-level poison per family (one family per weapon); lower ranks
+    // fall through to VENDOR/AH.
+    for (Item* item : botAI->GetInventoryItems())
+    {
+        ItemTemplate const* other = item->GetTemplate();
+        if (!other || other->ItemId == proto->ItemId)
+            continue;
+        if (!IsRoguePoison(other))
+            continue;
+
+        // Unusable higher ranks (level or class restriction) must not block a usable lower rank.
+        if (bot->CanUseItem(other) != EQUIP_ERR_OK)
+            continue;
+
+        SpellInfo const* otherUseSpell = GetTemporaryEnchantSpell(other);
+        if (otherUseSpell && otherUseSpell->SpellFamilyFlags == useSpell->SpellFamilyFlags &&
+            other->ItemLevel > proto->ItemLevel)
+            return false;
+    }
+
+    return true;
+}
+
 bool ItemUsageValue::HasItemsNeededForSpell(uint32 spellId, ItemTemplate const* proto)
 {
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
@@ -707,20 +916,25 @@ bool ItemUsageValue::HasItemsNeededForSpell(uint32 spellId, ItemTemplate const* 
         return false;
 
     for (uint8 i = 0; i < MAX_SPELL_REAGENTS; i++)
-        if (spellInfo->ReagentCount[i] > 0 && spellInfo->Reagent[i])
-        {
-            if (proto && proto->ItemId == uint32(spellInfo->Reagent[i]) &&
-                spellInfo->ReagentCount[i] == 1)  // If we only need 1 item then current item does not need to be
-                                                  // checked since we are looting/buying or already have it.
-                continue;
+    {
+        // Same validity check Spell::CheckItems uses: invalid/sentinel reagent ids are skipped.
+        if (spellInfo->Reagent[i] <= 0)
+            continue;
 
-            ItemTemplate const* reqProto = sObjectMgr->GetItemTemplate(spellInfo->Reagent[i]);
+        if (proto && proto->ItemId == uint32(spellInfo->Reagent[i]) &&
+            spellInfo->ReagentCount[i] == 1)  // If we only need 1 item then current item does not need to be
+                                              // checked since we are looting/buying or already have it.
+            continue;
 
-            uint32 count = AI_VALUE2(uint32, "item count", reqProto->Name1);
+        ItemTemplate const* reqProto = sObjectMgr->GetItemTemplate(spellInfo->Reagent[i]);
+        if (!reqProto)
+            continue;
 
-            if (count < spellInfo->ReagentCount[i])
-                return false;
-        }
+        uint32 count = AI_VALUE2(uint32, "item count", reqProto->Name1);
+
+        if (count < spellInfo->ReagentCount[i])
+            return false;
+    }
 
     return true;
 }
@@ -801,10 +1015,15 @@ std::vector<uint32> ItemUsageValue::SpellsUsingItem(uint32 itemId, Player* bot)
         if (!spellInfo)
             continue;
 
-        if (spellInfo->IsPassive())
+        // Skip only spells the server itself will not charge reagents for (Glyph of Renewed Life);
+        // SPELL_ATTR_PASSIVE alone does not mean the reagent is unused.
+        if (bot->CanNoReagentCast(spellInfo))
             continue;
 
-        if (spellInfo->Effects[EFFECT_0].Effect != SPELL_EFFECT_CREATE_ITEM)
+        // Profession spells are generic-family; only their crafting spells (CREATE_ITEM) count.
+        // Class spells (poisons, oils, water walking, ...) consume reagents without creating items.
+        if (spellInfo->Effects[EFFECT_0].Effect != SPELL_EFFECT_CREATE_ITEM &&
+            spellInfo->SpellFamilyName == SPELLFAMILY_GENERIC)
             continue;
 
         for (uint8 i = 0; i < MAX_SPELL_REAGENTS; i++)

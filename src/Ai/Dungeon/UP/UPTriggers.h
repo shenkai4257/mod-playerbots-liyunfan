@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_UPTRIGGERS_H
 #define PLAYERBOTS_UPTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum UtgardePinnacleIDs
 {
@@ -30,21 +36,21 @@ enum UtgardePinnacleIDs
 class SkadiFreezingCloudTrigger : public Trigger
 {
 public:
-    SkadiFreezingCloudTrigger(PlayerbotAI* ai) : Trigger(ai, "skadi freezing cloud") {}
+    SkadiFreezingCloudTrigger(PlayerbotAI* botAI) : Trigger(botAI, "skadi freezing cloud") {}
     bool IsActive() override;
 };
 
 class SkadiWhirlwindTrigger : public Trigger
 {
 public:
-    SkadiWhirlwindTrigger(PlayerbotAI* ai) : Trigger(ai, "skadi whirlwind") {}
+    SkadiWhirlwindTrigger(PlayerbotAI* botAI) : Trigger(botAI, "skadi whirlwind") {}
     bool IsActive() override;
 };
 
 class YmironBaneTrigger : public Trigger
 {
 public:
-    YmironBaneTrigger(PlayerbotAI* ai) : Trigger(ai, "ymiron bane") {}
+    YmironBaneTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ymiron bane") {}
     bool IsActive() override;
 };
 

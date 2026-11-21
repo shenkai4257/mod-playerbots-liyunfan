@@ -5,15 +5,14 @@
  */
 
 #include "RevealGatheringItemAction.h"
-
 #include "CellImpl.h"
 #include "ChatHelper.h"
 #include "Event.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
+#include "NearestGameObjects.h"
 #include "PlayerbotAI.h"
 #include "ServerFacade.h"
-#include "NearestGameObjects.h"
 
 bool RevealGatheringItemAction::Execute(Event /*event*/)
 {
@@ -21,16 +20,16 @@ bool RevealGatheringItemAction::Execute(Event /*event*/)
         return false;
 
     std::list<GameObject*> targets;
-    AnyGameObjectInObjectRangeCheck u_check(bot, sPlayerbotAIConfig.grindDistance);
+    AnyGameObjectInObjectRangeCheck u_check(bot, sPlayerbotAIConfig.GrindDistance);
     Acore::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(bot, targets, u_check);
-    Cell::VisitObjects(bot, searcher, sPlayerbotAIConfig.reactDistance);
+    Cell::VisitObjects(bot, searcher, sPlayerbotAIConfig.ReactDistance);
 
     std::vector<GameObject*> result;
     for (GameObject* go : targets)
     {
         if (!go || !go->isSpawned() ||
             ServerFacade::instance().IsDistanceLessOrEqualThan(ServerFacade::instance().GetDistance2d(bot, go),
-                                                     sPlayerbotAIConfig.lootDistance))
+                                                     sPlayerbotAIConfig.LootDistance))
             continue;
 
         if (LockEntry const* lockInfo = sLockStore.LookupEntry(go->GetGOInfo()->GetLockId()))

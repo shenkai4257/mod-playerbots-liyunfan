@@ -5,7 +5,6 @@
  */
 
 #include "ExternalEventHelper.h"
-
 #include "ChatHelper.h"
 #include "Playerbots.h"
 #include "Trigger.h"
@@ -34,7 +33,7 @@ bool ExternalEventHelper::ParseChatCommand(std::string const command, Player* ow
     if (!ChatHelper::parseableItem(command))
         return false;
 
-    if (sPlayerbotAIConfig.enableAutoTradeOnItemMention)
+    if (sPlayerbotAIConfig.EnableAutoTradeOnItemMention)
     {
         HandleCommand("c", command, owner);
         HandleCommand("t", command, owner);

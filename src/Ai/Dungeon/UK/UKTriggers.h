@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_UKTRIGGERS_H
 #define PLAYERBOTS_UKTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum UtgardeKeepIDs
 {
@@ -33,49 +39,42 @@ enum UtgardeKeepIDs
 class KelesethFrostTombTrigger : public Trigger
 {
 public:
-    KelesethFrostTombTrigger(PlayerbotAI* ai) : Trigger(ai, "keleseth frost tomb") {}
+    KelesethFrostTombTrigger(PlayerbotAI* botAI) : Trigger(botAI, "keleseth frost tomb") {}
     bool IsActive() override;
 };
 
 class DalronnDpsTrigger : public Trigger
 {
 public:
-    DalronnDpsTrigger(PlayerbotAI* ai) : Trigger(ai, "dalronn dps") {}
-    bool IsActive() override;
-};
-
-class IngvarStaggeringRoarTrigger : public Trigger
-{
-public:
-    IngvarStaggeringRoarTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar staggering roar") {}
+    DalronnDpsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "dalronn dps") {}
     bool IsActive() override;
 };
 
 class IngvarDreadfulRoarTrigger : public Trigger
 {
 public:
-    IngvarDreadfulRoarTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar dreadful roar") {}
+    IngvarDreadfulRoarTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ingvar dreadful roar") {}
     bool IsActive() override;
 };
 
 class IngvarSmashTankTrigger : public Trigger
 {
 public:
-    IngvarSmashTankTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar smash tank") {}
+    IngvarSmashTankTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ingvar smash tank") {}
     bool IsActive() override;
 };
 
 class IngvarSmashTankReturnTrigger : public Trigger
 {
 public:
-    IngvarSmashTankReturnTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar smash tank return") {}
+    IngvarSmashTankReturnTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ingvar smash tank return") {}
     bool IsActive() override;
 };
 
 class NotBehindIngvarTrigger : public Trigger
 {
 public:
-    NotBehindIngvarTrigger(PlayerbotAI* ai) : Trigger(ai, "not behind ingvar") {}
+    NotBehindIngvarTrigger(PlayerbotAI* botAI) : Trigger(botAI, "not behind ingvar") {}
     bool IsActive() override;
 };
 

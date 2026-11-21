@@ -1,3 +1,8 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
 #ifndef PLAYERBOTS_NAXXMULTIPLIERS_H
 #define PLAYERBOTS_NAXXMULTIPLIERS_H
@@ -8,37 +13,40 @@
 class GrobbulusMultiplier : public Multiplier
 {
 public:
-    GrobbulusMultiplier(PlayerbotAI* ai) : Multiplier(ai, "grobbulus") {}
+    GrobbulusMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "grobbulus") {}
 
 public:
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 };
 
-//class HeiganDanceMultiplier : public Multiplier
-//{
-//public:
-//    HeiganDanceMultiplier(PlayerbotAI* ai) : Multiplier(ai, "helgan dance") {}
-//
-//public:
-//    virtual float GetValue(Action* action);
-//};
+class HeiganDanceMultiplier : public Multiplier
+{
+public:
+    explicit HeiganDanceMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "heigan dance"), helper(botAI) {}
+
+public:
+    float GetValue(Action* action) override;
+
+private:
+    HeiganBossHelper helper;
+};
 
 class LoathebGenericMultiplier : public Multiplier
 {
 public:
-    LoathebGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "loatheb generic") {}
+    LoathebGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "loatheb generic") {}
 
 public:
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 };
 
 class ThaddiusGenericMultiplier : public Multiplier
 {
 public:
-    ThaddiusGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "thaddius generic"), helper(ai) {}
+    ThaddiusGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "thaddius generic"), helper(botAI) {}
 
 public:
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 
 private:
     ThaddiusBossHelper helper;
@@ -47,9 +55,9 @@ private:
 class SapphironGenericMultiplier : public Multiplier
 {
 public:
-    SapphironGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "sapphiron generic"), helper(ai) {}
+    SapphironGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "sapphiron generic"), helper(botAI) {}
 
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 
 private:
     SapphironBossHelper helper;
@@ -58,8 +66,8 @@ private:
 class InstructorRazuviousGenericMultiplier : public Multiplier
 {
 public:
-    InstructorRazuviousGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "instructor razuvious generic"), helper(ai) {}
-    virtual float GetValue(Action* action);
+    InstructorRazuviousGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "instructor razuvious generic"), helper(botAI) {}
+    float GetValue(Action* action) override;
 
 private:
     RazuviousBossHelper helper;
@@ -68,8 +76,8 @@ private:
 class KelthuzadGenericMultiplier : public Multiplier
 {
 public:
-    KelthuzadGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "kelthuzad generic"), helper(ai) {}
-    virtual float GetValue(Action* action);
+    KelthuzadGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "kelthuzad generic"), helper(botAI) {}
+    float GetValue(Action* action) override;
 
 private:
     KelthuzadBossHelper helper;
@@ -78,34 +86,34 @@ private:
 class AnubrekhanGenericMultiplier : public Multiplier
 {
 public:
-    AnubrekhanGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "anubrekhan generic") {}
+    AnubrekhanGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "anubrekhan generic") {}
 
 public:
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 };
 
 class FourHorsemenGenericMultiplier : public Multiplier
 {
 public:
-    FourHorsemenGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "four horsemen generic") {}
+    FourHorsemenGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "four horsemen generic") {}
 
 public:
-    virtual float GetValue(Action* action);
+    float GetValue(Action* action) override;
 };
 
 // class GothikGenericMultiplier : public Multiplier
 // {
 // public:
-//     GothikGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "gothik generic") {}
+//     GothikGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "gothik generic") {}
 
 // public:
-//     virtual float GetValue(Action* action);
+//     float GetValue(Action* action) override;
 // };
 
 class GluthGenericMultiplier : public Multiplier
 {
 public:
-    GluthGenericMultiplier(PlayerbotAI* ai) : Multiplier(ai, "gluth generic"), helper(ai) {}
+    GluthGenericMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "gluth generic"), helper(botAI) {}
     float GetValue(Action* action) override;
 
 private:

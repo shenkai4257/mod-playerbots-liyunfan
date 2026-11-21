@@ -4,12 +4,20 @@
  * or (at your option) any later version.
  */
 
-#include "PullTriggers.h"
+/*
+ * Ported from the CMaNGOS playerbots project (https://github.com/cmangos/playerbots), GPL v2,
+ * with modifications for AzerothCore.
+ * Original authors:
+ *   David Parra Ausina (davidonete/Flekz) <davidparraausina@gmail.com> - original author
+ *   Sebastiaan Keek (mostlikely4r) <sebastiaan.keek@gmail.com>
+ *   Cyberium <cyberium@users.noreply.github.com>
+ */
 
-#include "PositionValue.h"
+#include "PullTriggers.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
+#include "PositionValue.h"
 #include "PullStrategy.h"
 
 bool PullStartTrigger::IsActive()
@@ -35,7 +43,7 @@ bool PullEndTrigger::IsActive()
 
     float distanceToPullTarget = bot->GetDistance(target);
     if (distanceToPullTarget > ATTACK_DISTANCE && !target->IsNonMeleeSpellCast(false, false, true) &&
-        (!botAI->IsRanged(bot) || distanceToPullTarget > botAI->GetRange("spell")))
+        (!PlayerbotAI::IsRanged(bot) || distanceToPullTarget > botAI->GetRange("spell")))
         return false;
 
     if (!botAI->HasStrategy("pull back", BOT_STATE_COMBAT))
@@ -59,5 +67,5 @@ bool ReturnToPullPositionTrigger::IsActive()
 
     PositionInfo pullPosition = AI_VALUE(PositionMap&, "position")["pull"];
     return pullPosition.isSet() && pullPosition.mapId == bot->GetMapId() &&
-           bot->GetDistance(pullPosition.x, pullPosition.y, pullPosition.z) > sPlayerbotAIConfig.followDistance;
+           bot->GetDistance(pullPosition.x, pullPosition.y, pullPosition.z) > sPlayerbotAIConfig.FollowDistance;
 }

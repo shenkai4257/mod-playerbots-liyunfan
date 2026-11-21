@@ -7,14 +7,13 @@
 #ifndef PLAYERBOTS_RSSHARED_H
 #define PLAYERBOTS_RSSHARED_H
 
-#include <vector>
-
 #include "Group.h"
 #include "MotionMaster.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "RtiTargetValue.h"
 #include "ThreatManager.h"
+#include <vector>
 
 template <typename Pred>
 inline void RsCollectTargets(PlayerbotAI* botAI, std::vector<Unit*>& out, Pred pred)
@@ -57,7 +56,7 @@ inline bool RsReleaseIfFollowing(Player* bot)
         return false;
 
     bot->AttackStop();
-    bot->InterruptNonMeleeSpells(true);
+    bot->CastStop();
     if (bot->GetTarget())
         bot->SetTarget(ObjectGuid::Empty);
     return true;
@@ -80,7 +79,7 @@ inline bool RsIsDesignatedMarker(Player* bot)
         if (!memberAI)
             continue;
 
-        if (memberAI->IsTank(member) || memberAI->IsHeal(member))
+        if (PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member))
             continue;
 
         if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())

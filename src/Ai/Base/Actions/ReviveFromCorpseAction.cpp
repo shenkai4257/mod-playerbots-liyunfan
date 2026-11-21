@@ -5,7 +5,7 @@
  */
 
 #include "ReviveFromCorpseAction.h"
-
+#include "Corpse.h"
 #include "Event.h"
 #include "FleeManager.h"
 #include "GameGraveyard.h"
@@ -14,10 +14,16 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ServerFacade.h"
-#include "Corpse.h"
+
+// Top of the default start-zone brackets (Playerbots.ZoneBracket.*).
+constexpr uint32 START_ZONE_GRAVEYARD_MAX_LEVEL = 12;
 
 bool ReviveFromCorpseAction::Execute(Event event)
 {
+    // BG ghosts are revived by spirit healer waves; teleporting to a world graveyard removes them from the BG.
+    if (bot->InBattleground())
+        return false;
+
     Player* groupLeader = botAI->GetGroupLeader();
     Corpse* corpse = bot->GetCorpse();
 
@@ -26,7 +32,7 @@ bool ReviveFromCorpseAction::Execute(Event event)
     if (!p.empty() && p.GetOpcode() == CMSG_RECLAIM_CORPSE && groupLeader && !corpse && bot->IsAlive())
     {
         if (ServerFacade::instance().IsDistanceLessThan(AI_VALUE2(float, "distance", "group leader"),
-                                              sPlayerbotAIConfig.farDistance))
+                                              sPlayerbotAIConfig.FarDistance))
         {
             if (!botAI->HasStrategy("follow", BOT_STATE_NON_COMBAT))
             {
@@ -48,18 +54,16 @@ bool ReviveFromCorpseAction::Execute(Event event)
     {
         if (!GET_PLAYERBOT_AI(groupLeader) && groupLeader->isDead() && groupLeader->GetCorpse() &&
             ServerFacade::instance().IsDistanceLessThan(AI_VALUE2(float, "distance", "group leader"),
-                                              sPlayerbotAIConfig.farDistance))
+                                              sPlayerbotAIConfig.FarDistance))
             return false;
     }
 
-    if (!botAI->HasRealPlayerMaster())
+    if (!botAI->HasGameClientMaster())
     {
         uint32 dCount = AI_VALUE(uint32, "death count");
 
         if (dCount >= 5)
-        {
             return botAI->DoSpecificAction("spirit healer");
-        }
     }
 
     LOG_DEBUG("playerbots", "Bot {} {}:{} <{}> revives at body", bot->GetGUID().ToString().c_str(),
@@ -89,12 +93,12 @@ bool FindCorpseAction::Execute(Event /*event*/)
     // {
     //     if (!GET_PLAYERBOT_AI(groupLeader) &&
     //         ServerFacade::instance().IsDistanceLessThan(AI_VALUE2(float, "distance", "group leader"),
-    //         sPlayerbotAIConfig.farDistance)) return false;
+    //         sPlayerbotAIConfig.FarDistance)) return false;
     // }
 
     uint32 dCount = AI_VALUE(uint32, "death count");
 
-    if (!botAI->HasRealPlayerMaster())
+    if (!botAI->HasGameClientMaster())
     {
         if (dCount >= 5)
         {
@@ -124,7 +128,7 @@ bool FindCorpseAction::Execute(Event /*event*/)
     {
         if (moveToLeader)  // We are near group leader.
         {
-            if (botPos.fDist(leaderPos) < sPlayerbotAIConfig.spellDistance)
+            if (botPos.fDist(leaderPos) < sPlayerbotAIConfig.SpellDistance)
                 return false;
         }
         else if (deadTime > 8 * MINUTE)  // We have walked too long already.
@@ -139,7 +143,7 @@ bool FindCorpseAction::Execute(Event /*event*/)
     }
 
     // If we are getting close move to a save ressurrection spot instead of just the corpse.
-    if (corpseDist < sPlayerbotAIConfig.reactDistance)
+    if (corpseDist < sPlayerbotAIConfig.ReactDistance)
     {
         if (moveToLeader)
             moveToPos = leaderPos;
@@ -212,6 +216,7 @@ GraveyardStruct const* SpiritHealerAction::GetGrave(bool startZone)
     GraveyardStruct const* NewGrave = nullptr;
 
     ClosestGrave = sGraveyard->GetClosestGraveyard(bot, bot->GetTeamId());
+    GraveyardStruct const* ownGrave = ClosestGrave;
 
     if (!startZone && ClosestGrave)
         return ClosestGrave;
@@ -249,6 +254,9 @@ GraveyardStruct const* SpiritHealerAction::GetGrave(bool startZone)
             }
         }
     }
+
+    if (ownGrave && bot->GetLevel() > START_ZONE_GRAVEYARD_MAX_LEVEL)
+        return ownGrave;
 
     std::vector<uint32> races;
 
@@ -296,6 +304,10 @@ GraveyardStruct const* SpiritHealerAction::GetGrave(bool startZone)
 
 bool SpiritHealerAction::Execute(Event /*event*/)
 {
+    // GetGrave() picks world graveyards; teleporting there from a BG removes the bot from it.
+    if (bot->InBattleground())
+        return false;
+
     Corpse* corpse = bot->GetCorpse();
     if (!corpse)
     {
@@ -309,7 +321,7 @@ bool SpiritHealerAction::Execute(Event /*event*/)
     GraveyardStruct const* ClosestGrave =
         GetGrave(dCount > 10 || deadTime > 15 * MINUTE || AI_VALUE(uint8, "durability") < 10);
 
-    if (bot->GetDistance2d(ClosestGrave->x, ClosestGrave->y) < sPlayerbotAIConfig.sightDistance)
+    if (bot->GetDistance2d(ClosestGrave->x, ClosestGrave->y) < sPlayerbotAIConfig.SightDistance)
     {
         GuidVector npcs = AI_VALUE(GuidVector, "nearest npcs");
         for (GuidVector::iterator i = npcs.begin(); i != npcs.end(); i++)
@@ -349,7 +361,7 @@ bool SpiritHealerAction::Execute(Event /*event*/)
     if (moved)
         return true;
 
-    // if (!botAI->HasActivePlayerMaster())
+    // if (!IsRealPlayer(botAI->GetMaster()))
     // {
     context->GetValue<uint32>("death count")->Set(dCount + 1);
     bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);

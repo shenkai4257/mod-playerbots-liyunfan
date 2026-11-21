@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_NEXTRIGGERS_H
 #define PLAYERBOTS_NEXTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum NexusIDs
 {
@@ -33,56 +39,56 @@ enum NexusIDs
 class FactionCommanderWhirlwindTrigger : public Trigger
 {
 public:
-    FactionCommanderWhirlwindTrigger(PlayerbotAI* ai) : Trigger(ai, "faction commander whirlwind") {}
+    FactionCommanderWhirlwindTrigger(PlayerbotAI* botAI) : Trigger(botAI, "faction commander whirlwind") {}
     bool IsActive() override;
 };
 
 class TelestraFirebombTrigger : public Trigger
 {
 public:
-    TelestraFirebombTrigger(PlayerbotAI* ai) : Trigger(ai, "telestra firebomb spread") {}
+    TelestraFirebombTrigger(PlayerbotAI* botAI) : Trigger(botAI, "telestra firebomb spread") {}
     bool IsActive() override;
 };
 
 class TelestraSplitPhaseTrigger : public Trigger
 {
 public:
-    TelestraSplitPhaseTrigger(PlayerbotAI* ai) : Trigger(ai, "telestra split phase") {}
+    TelestraSplitPhaseTrigger(PlayerbotAI* botAI) : Trigger(botAI, "telestra split phase") {}
     bool IsActive() override;
 };
 
 class ChaoticRiftTrigger : public Trigger
 {
 public:
-    ChaoticRiftTrigger(PlayerbotAI* ai) : Trigger(ai, "chaotic rift") {}
+    ChaoticRiftTrigger(PlayerbotAI* botAI) : Trigger(botAI, "chaotic rift") {}
     bool IsActive() override;
 };
 
 class OrmorokSpikesTrigger : public Trigger
 {
 public:
-    OrmorokSpikesTrigger(PlayerbotAI* ai) : Trigger(ai, "ormorok spikes") {}
+    OrmorokSpikesTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ormorok spikes") {}
     bool IsActive() override;
 };
 
 class OrmorokStackTrigger : public Trigger
 {
 public:
-    OrmorokStackTrigger(PlayerbotAI* ai) : Trigger(ai, "ormorok stack") {}
+    OrmorokStackTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ormorok stack") {}
     bool IsActive() override;
 };
 
 class IntenseColdTrigger : public Trigger
 {
 public:
-    IntenseColdTrigger(PlayerbotAI* ai) : Trigger(ai, "intense cold") {}
+    IntenseColdTrigger(PlayerbotAI* botAI) : Trigger(botAI, "intense cold") {}
     bool IsActive() override;
 };
 
 class KeristraszaPositioningTrigger : public Trigger
 {
 public:
-    KeristraszaPositioningTrigger(PlayerbotAI* ai) : Trigger(ai, "keristrasza positioning") {}
+    KeristraszaPositioningTrigger(PlayerbotAI* botAI) : Trigger(botAI, "keristrasza positioning") {}
     bool IsActive() override;
 };
 

@@ -1,5 +1,10 @@
-#include "NaxxActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "NaxxActions.h"
 #include "ObjectGuid.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
@@ -66,16 +71,16 @@ bool RazuviousUseObedienceCrystalAction::Execute(Event /*event*/)
                 if (!charm->HasSpellCooldown(SPELL_BONE_BARRIER))
                 {
                     charm->CastSpell(charm, SPELL_BONE_BARRIER, true);
-                    charm->AddSpellCooldown(SPELL_BONE_BARRIER, 0, 30 * 1000);
+                    charm->AddSpellCooldown(SPELL_BONE_BARRIER, 0, 30 * IN_MILLISECONDS);
                 }
                 charm->CastSpell(target, SPELL_UNDERSTUDY_TAUNT, true);
-                charm->AddSpellCooldown(SPELL_UNDERSTUDY_TAUNT, 0, 20 * 1000);
+                charm->AddSpellCooldown(SPELL_UNDERSTUDY_TAUNT, 0, 20 * IN_MILLISECONDS);
             }
             // strike
             if (!charm->HasSpellCooldown(SPELL_BLOOD_STRIKE))
             {
                 charm->CastSpell(target, SPELL_BLOOD_STRIKE, true);
-                charm->AddSpellCooldown(SPELL_BLOOD_STRIKE, 0, 4 * 1000);
+                charm->AddSpellCooldown(SPELL_BLOOD_STRIKE, 0, 4 * IN_MILLISECONDS);
             }
         }
     }
@@ -91,10 +96,10 @@ bool RazuviousUseObedienceCrystalAction::Execute(Event /*event*/)
                 if (!unit)
                     continue;
 
-                if (botAI->IsMainTank(bot) && unit->GetSpawnId() != 128352)
+                if (PlayerbotAI::IsMainTank(bot) && unit->GetSpawnId() != 128352)
                     continue;
 
-                if (!botAI->IsMainTank(bot) && unit->GetSpawnId() != 128353)
+                if (!PlayerbotAI::IsMainTank(bot) && unit->GetSpawnId() != 128353)
                     continue;
 
                 if (MoveTo(unit, 0.0f, MovementPriority::MOVEMENT_COMBAT))
@@ -125,8 +130,8 @@ bool RazuviousUseObedienceCrystalAction::Execute(Event /*event*/)
             }
             if (target)
             {
-                if (bot->GetDistance2d(target) > sPlayerbotAIConfig.spellDistance)
-                    return MoveNear(target, sPlayerbotAIConfig.spellDistance, MovementPriority::MOVEMENT_COMBAT);
+                if (bot->GetDistance2d(target) > sPlayerbotAIConfig.SpellDistance)
+                    return MoveNear(target, sPlayerbotAIConfig.SpellDistance, MovementPriority::MOVEMENT_COMBAT);
                 else
                     return botAI->CastSpell("mind control", target);
             }
@@ -143,7 +148,7 @@ bool RazuviousTargetAction::Execute(Event /*event*/)
     Unit* razuvious = AI_VALUE2(Unit*, "find target", "instructor razuvious");
     Unit* understudy = AI_VALUE2(Unit*, "find target", "death knight understudy");
     Unit* target = nullptr;
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         target = understudy;
     else
         target = razuvious;

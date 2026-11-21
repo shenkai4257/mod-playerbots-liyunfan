@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_GENERICWARRIORSTRATEGY_H
 #define PLAYERBOTS_GENERICWARRIORSTRATEGY_H
 
+#include "Action.h"
 #include "CombatStrategy.h"
 
 class PlayerbotAI;
@@ -225,10 +226,10 @@ public:
     std::string const getName() override { return "warrior"; }
 };
 
-class WarrirorAoeStrategy : public CombatStrategy
+class WarriorAoeStrategy : public CombatStrategy
 {
 public:
-    WarrirorAoeStrategy(PlayerbotAI* botAI);
+    WarriorAoeStrategy(PlayerbotAI* botAI);
 
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
     std::string const getName() override { return "aoe"; }

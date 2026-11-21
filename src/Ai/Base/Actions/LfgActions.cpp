@@ -5,17 +5,39 @@
  */
 
 #include "LfgActions.h"
-
 #include "AiFactory.h"
 #include "ItemVisitors.h"
 #include "LFGMgr.h"
 #include "Opcodes.h"
 #include "Playerbots.h"
+#include "RandomPlayerbotMgr.h"
 #include "World.h"
 #include "WorldPacket.h"
-#include "RandomPlayerbotMgr.h"
 
 using namespace lfg;
+
+namespace
+{
+    constexpr uint8 CLASSIC_MAX_LEVEL = 60;
+    constexpr uint8 TBC_MAX_LEVEL = 70;
+
+    bool IsExpansionOutleveled(LFGDungeonEntry const* dungeon, uint8 level)
+    {
+        // Seasonal bosses keep their original expansion but are level 78-82.
+        if (dungeon->Flags & LFG_FLAG_SEASONAL)
+            return false;
+
+        switch (dungeon->ExpansionLevel)
+        {
+            case EXPANSION_CLASSIC:
+                return level > CLASSIC_MAX_LEVEL;
+            case EXPANSION_THE_BURNING_CRUSADE:
+                return level > TBC_MAX_LEVEL;
+            default:
+                return false;
+        }
+    }
+}
 
 bool LfgJoinAction::Execute(Event /*event*/) { return JoinLFG(); }
 
@@ -23,9 +45,9 @@ uint32 LfgJoinAction::GetRoles()
 {
     if (!RandomPlayerbotMgr::instance().IsRandomBot(bot))
     {
-        if (botAI->IsTank(bot))
+        if (PlayerbotAI::IsTank(bot))
             return PLAYER_ROLE_TANK;
-        if (botAI->IsHeal(bot))
+        if (PlayerbotAI::IsHeal(bot))
             return PLAYER_ROLE_HEALER;
         else
             return PLAYER_ROLE_DAMAGE;
@@ -120,6 +142,10 @@ bool LfgJoinAction::JoinLFG()
             (botLevel > dungeon->MinLevel + 10 && dungeon->TypeID == LFG_TYPE_DUNGEON))
             continue;
 
+        // LFG level ranges run past the expansion cap: Stratholme is 55-65.
+        if (!sPlayerbotAIConfig.RandomBotJoinLfgOutleveledExpansion && IsExpansionOutleveled(dungeon, botLevel))
+            continue;
+
         selected.push_back(dungeon->ID);
         list.insert(dungeon->ID);
     }
@@ -173,7 +199,7 @@ bool LfgJoinAction::JoinLFG()
 
 bool LfgRoleCheckAction::Execute(Event /*event*/)
 {
-    if (Group* group = bot->GetGroup())
+    if (bot->GetGroup())
     {
         uint32 newRoles = GetRoles();
         // if (currentRoles == newRoles)
@@ -275,6 +301,15 @@ bool LfgLeaveAction::Execute(Event /*event*/)
     if (sLFGMgr->GetState(bot->GetGUID()) > LFG_STATE_QUEUED)
         return false;
 
+    // Don't drop a queue we deliberately joined. The "seldom" tick (RandomTrigger, ~300s)
+    // otherwise pulls random bots straight back out, so LFGQueue::CheckCompatibility never
+    // sees a role-complete pool that holds still long enough to form a group. Turning
+    // RandomBotJoinLfg off still lets whoever is mid-queue fall through and leave.
+    // Config bool is tested first so the O(currentBots) IsRandomBot() scan is skipped
+    // whenever the feature is disabled.
+    if (sPlayerbotAIConfig.RandomBotJoinLfg && RandomPlayerbotMgr::instance().IsRandomBot(bot))
+        return false;
+
     WorldPacket* packet = new WorldPacket(CMSG_LFG_LEAVE);
     bot->GetSession()->QueuePacket(packet);
     // sLFGMgr->LeaveLfg(bot->GetGUID());
@@ -306,7 +341,7 @@ bool LfgTeleportAction::Execute(Event event)
 
 bool LfgJoinAction::isUseful()
 {
-    if (!sPlayerbotAIConfig.randomBotJoinLfg)
+    if (!sPlayerbotAIConfig.RandomBotJoinLfg)
     {
         // botAI->ChangeStrategy("-lfg", BOT_STATE_NON_COMBAT);
         return false;
@@ -315,8 +350,8 @@ bool LfgJoinAction::isUseful()
     if (bot->GetLevel() < 15)
         return false;
 
-    // don't use if active player master
-    if (GET_PLAYERBOT_AI(bot)->IsRealPlayer())
+    // Don't use for SelfBots (a real player is at the keyboard).
+    if (IsSelfBot(bot))
         return false;
 
     if (bot->GetGroup() && bot->GetGroup()->GetLeaderGUID() != bot->GetGUID())

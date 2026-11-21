@@ -1,7 +1,17 @@
-#include "MCStrategy.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "MCStrategy.h"
+#include "MCHelpers.h"
 #include "MCMultipliers.h"
+#include "Playerbots.h"
+#include "RtiTargetValue.h"
 #include "Strategy.h"
+
+using namespace MoltenCoreHelpers;
 
 void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
@@ -11,7 +21,7 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
                         { NextAction("mc lucifron shadow resistance", ACTION_RAID) }));
 
     // Magmadar
-    // TODO: Fear ward / tremor totem, or general anti-fear strat development. Same as King Dred (Drak'Tharon) and faction commander (Nexus).
+    // TODO: tremor totem, or general anti-fear strat development. Same as King Dred (Drak'Tharon) and faction commander (Nexus).
     triggers.push_back(
         new TriggerNode("mc magmadar fire resistance",
                         { NextAction("mc magmadar fire resistance", ACTION_RAID) }));
@@ -61,11 +71,20 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc golemagg is assist tank",
                         { NextAction("mc golemagg assist tank attack core rager", ACTION_RAID) }));
+    triggers.push_back(
+        new TriggerNode("mc golemagg magma splash",
+                        { NextAction("mc golemagg back off", ACTION_RAID + 1) }));
+    triggers.push_back(
+        new TriggerNode("mc golemagg is healer",
+                        { NextAction("mc golemagg healer position", ACTION_RAID) }));
 
     // Majordomo Executus
     triggers.push_back(
         new TriggerNode("mc majordomo shadow resistance",
                         { NextAction("mc majordomo shadow resistance", ACTION_RAID) }));
+    triggers.push_back(
+        new TriggerNode("mc majordomo damage shield",
+                        { NextAction("mc majordomo stop attack", ACTION_RAID + 1) }));
 
     // Ragnaros
     triggers.push_back(
@@ -76,6 +95,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc core hound mark",
                         { NextAction("mc core hound mark", ACTION_RAID) }));
+
+    // Anywhere in MC: escaping a lava pool outranks everything else.
+    triggers.push_back(
+        new TriggerNode("mc in lava",
+                        { NextAction("mc move from lava", ACTION_RAID + 1) }));
 }
 
 void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
@@ -83,4 +107,41 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new GarrDisableDpsAoeMultiplier(botAI));
     multipliers.push_back(new BaronGeddonAbilityMultiplier(botAI));
     multipliers.push_back(new GolemaggMultiplier(botAI));
+    multipliers.push_back(new MajordomoReflectionMultiplier(botAI));
+}
+
+void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
+{
+    if (type == TargetValueExclusionType::TankTarget ||
+        (type == TargetValueExclusionType::Aoe && PlayerbotAI::IsTank(botAI->GetBot())))
+        return;
+
+    // Damage into these is wasted: Core Ragers are unkillable while Golemagg
+    // lives (full heal at 50%), and Majordomo cannot die; his encounter ends
+    // when the eight adds are dead. Tanks still pick them up through their own
+    // target selection.
+    AiObjectContext* context = botAI->GetAiObjectContext();
+    bool const golemaggAlive = AI_VALUE2(Unit*, "find target", "golemagg the incinerator") != nullptr;
+    // The DPS target search skips the moon (crowd control) mark, so a moon-marked healer does not count.
+    Group const* group = botAI->GetBot()->GetGroup();
+    ObjectGuid const moonGuid = group ? group->GetTargetIcon(RtiTargetValue::moonIndex) : ObjectGuid::Empty;
+    bool flamewakerHealerAlive = false;
+    GuidVector flamewakerElites;
+    for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
+    {
+        Unit* unit = botAI->GetUnit(guid);
+        if (!unit)
+            continue;
+
+        if ((golemaggAlive && unit->GetEntry() == NPC_CORE_RAGER) || unit->GetEntry() == NPC_MAJORDOMO_EXECUTUS)
+            exclusions.insert(guid);
+        else if (unit->GetEntry() == NPC_FLAMEWAKER_HEALER && unit->IsAlive() && guid != moonGuid)
+            flamewakerHealerAlive = true;
+        else if (unit->GetEntry() == NPC_FLAMEWAKER_ELITE)
+            flamewakerElites.push_back(guid);
+    }
+
+    // Majordomo's healers first: they heal the elites and each other.
+    if (type == TargetValueExclusionType::DpsTarget && flamewakerHealerAlive)
+        exclusions.insert(flamewakerElites.begin(), flamewakerElites.end());
 }

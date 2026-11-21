@@ -6,11 +6,14 @@
 
 #include "SellAction.h"
 
+#include <algorithm>
+
+#include "ChatHelper.h"
 #include "Event.h"
+#include "ItemPackets.h"
 #include "ItemUsageValue.h"
 #include "ItemVisitors.h"
 #include "Playerbots.h"
-#include "ItemPackets.h"
 
 class SellItemsVisitor : public IterateItemsVisitor
 {
@@ -27,18 +30,48 @@ private:
     SellAction* action;
 };
 
-class SellGrayItemsVisitor : public SellItemsVisitor
+class SellQualityItemsVisitor : public SellItemsVisitor
 {
 public:
-    SellGrayItemsVisitor(SellAction* action) : SellItemsVisitor(action) {}
+    SellQualityItemsVisitor(SellAction* action, uint32 maxQuality, bool allClasses)
+        : SellItemsVisitor(action), maxQuality(maxQuality), allClasses(allClasses)
+    {
+    }
 
     bool Visit(Item* item) override
     {
-        if (item->GetTemplate()->Quality != ITEM_QUALITY_POOR)
+        ItemTemplate const* proto = item->GetTemplate();
+        if (proto->Quality > maxQuality)
+            return true;
+
+        if (IsProfessionTool(proto))
+            return true;
+
+        if (!allClasses && proto->Quality > ITEM_QUALITY_POOR && !IsEquipment(proto))
             return true;
 
         return SellItemsVisitor::Visit(item);
     }
+
+private:
+    static bool IsEquipment(ItemTemplate const* proto)
+    {
+        return proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_WEAPON;
+    }
+
+    static bool IsProfessionTool(ItemTemplate const* proto)
+    {
+        if (proto->Class != ITEM_CLASS_WEAPON)
+            return false;
+
+        if (proto->SubClass == ITEM_SUBCLASS_WEAPON_MISC || proto->SubClass == ITEM_SUBCLASS_WEAPON_FISHING_POLE)
+            return true;
+
+        return proto->TotemCategory != 0;
+    }
+
+    uint32 maxQuality;
+    bool allClasses;
 };
 
 class SellVendorItemsVisitor : public SellItemsVisitor
@@ -63,8 +96,9 @@ bool SellAction::Execute(Event event)
     std::string const text = event.getParam();
     if (text == "gray" || text == "*")
     {
-        SellGrayItemsVisitor visitor(this);
+        SellQualityItemsVisitor visitor(this, ITEM_QUALITY_POOR, false);
         IterateItems(&visitor);
+        botAI->ConsolidateItems();  // re-stack what the partial sells fragmented
         return true;
     }
 
@@ -72,6 +106,26 @@ bool SellAction::Execute(Event event)
     {
         SellVendorItemsVisitor visitor(this, context);
         IterateItems(&visitor);
+        botAI->ConsolidateItems();  // re-stack what the partial sells fragmented
+        return true;
+    }
+
+    std::string quality = text;
+    bool allClasses = false;
+
+    size_t const split = quality.rfind(' ');
+    if (split != std::string::npos && quality.substr(split + 1) == "all")
+    {
+        quality.erase(split);
+        allClasses = true;
+    }
+
+    uint32 const maxQuality = ChatHelper::parseItemQuality(quality);
+    if (maxQuality != MAX_ITEM_QUALITY)
+    {
+        SellQualityItemsVisitor visitor(this, maxQuality, allClasses);
+        IterateItems(&visitor);
+        botAI->ConsolidateItems();  // re-stack what the partial sells fragmented
         return true;
     }
 
@@ -79,13 +133,12 @@ bool SellAction::Execute(Event event)
     {
         std::vector<Item*> items = parseItems(text, ITERATE_ITEMS_IN_BAGS);
         for (Item* item : items)
-        {
-            Sell(item);
-        }
+            Sell(item, true);
+
         return true;
     }
 
-    botAI->TellError("Usage: s gray/*/vendor/[item link]");
+    botAI->TellError("Usage: s gray/*/vendor/<quality> [all]/[item link]");
     return false;
 }
 
@@ -99,9 +152,63 @@ void SellAction::Sell(FindItemVisitor* visitor)
     }
 }
 
-void SellAction::Sell(Item* item)
+uint32 SellAction::GetQuestItemRequirement(uint32 itemId)
 {
+    uint32 maxRequirement = 0;
+
+    for (auto const& questPair : botAI->GetCurrentQuestsRequiringItemId(itemId))
+    {
+        Quest const* quest = questPair.first;
+        if (!quest)
+            continue;
+
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; i++)
+        {
+            if (quest->RequiredItemId[i] == itemId)
+                maxRequirement = std::max(maxRequirement, quest->RequiredItemCount[i]);
+        }
+    }
+
+    return maxRequirement;
+}
+
+void SellAction::Sell(Item* item, bool force)
+{
+    if (!item)
+        return;
+
     std::ostringstream out;
+    uint32 itemId = item->GetEntry();
+    ItemTemplate const* proto = item->GetTemplate();
+
+    uint32 keepRequirement = force ? 0 : GetQuestItemRequirement(itemId);
+
+    if (!force && (proto->Class == ITEM_CLASS_TRADE_GOODS || proto->Class == ITEM_CLASS_MISC ||
+        proto->Class == ITEM_CLASS_REAGENT))
+    {
+        // Needed class reagents (spells in the bot's book consume them): keep exactly 2 full
+        // stacks, so the sell stop point is consistent regardless of bag stack order.
+        bool lowBagSpace = context->GetValue<uint8>("bag space")->Get() > 50;
+        if (ItemUsageValue(botAI).IsItemNeededForUsefullSpell(proto, lowBagSpace))
+            keepRequirement = std::max(keepRequirement, 2u * proto->GetMaxStackSize());
+    }
+
+    uint32 countToSell = item->GetCount();
+
+    if (keepRequirement > 0)
+    {
+        QueryItemCountVisitor countVisitor(itemId);
+        IterateItems(&countVisitor, ITERATE_ITEMS_IN_BAGS);
+        uint32 totalCount = countVisitor.GetCount();
+
+        if (totalCount <= keepRequirement)
+            return;
+
+        // Sell only the excess, keeping the required amount in the stack.
+        uint32 excessCount = totalCount - keepRequirement;
+        if (item->GetCount() > excessCount)
+            countToSell = excessCount;
+    }
 
     GuidVector vendors = botAI->GetAiObjectContext()->GetValue<GuidVector>("nearest npcs")->Get();
 
@@ -112,12 +219,11 @@ void SellAction::Sell(Item* item)
             continue;
 
         ObjectGuid itemguid = item->GetGUID();
-        uint32 count = item->GetCount();
 
         uint32 botMoney = bot->GetMoney();
 
         WorldPacket p(CMSG_SELL_ITEM);
-        p << vendorguid << itemguid << count;
+        p << vendorguid << itemguid << countToSell;
 
         WorldPackets::Item::SellItem nicePacket(std::move(p));
         nicePacket.Read();
@@ -128,7 +234,9 @@ void SellAction::Sell(Item* item)
             bot->SetMoney(botMoney);
         }
 
-        out << "Selling " << chat->FormatItem(item->GetTemplate());
+        out << "Selling " << chat->FormatItem(proto);
+        if (keepRequirement > 0)
+            out << " (keeping " << keepRequirement << ")";
         botAI->TellMaster(out);
 
         bot->PlayDistanceSound(120);

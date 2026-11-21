@@ -4,12 +4,11 @@
  * or (at your option) any later version.
  */
 
-#include <limits>
-#include <vector>
-
 #include "NearestNpcsValue.h"
 #include "Playerbots.h"
 #include "RSActions.h"
+#include <limits>
+#include <vector>
 
 bool RsZarithrianAddsAction::Execute(Event )
 {
@@ -139,7 +138,7 @@ bool RsZarithrianTankAction::RunAddsToBoss(Unit* boss, std::vector<Unit*> const&
 
 bool RsZarithrianTankAction::Execute(Event )
 {
-    if (!botAI->IsTank(bot))
+    if (!PlayerbotAI::IsTank(bot))
         return false;
 
     Unit* boss = FindBoss();
@@ -159,10 +158,10 @@ bool RsZarithrianTankAction::Execute(Event )
             if (!member || !member->IsAlive())
                 continue;
 
-            if (!mainTankPlayer && botAI->IsMainTank(member))
+            if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
                 mainTankPlayer = member;
 
-            if (!assistTankPlayer && botAI->IsAssistTank(member))
+            if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
                 assistTankPlayer = member;
 
             if (mainTankPlayer && assistTankPlayer)

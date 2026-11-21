@@ -1,16 +1,20 @@
-#include "EoEMultipliers.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "EoEMultipliers.h"
 #include "ChooseTargetActions.h"
 #include "DKActions.h"
 #include "DruidActions.h"
 #include "DruidBearActions.h"
+#include "EoEActions.h"
+#include "EoETriggers.h"
 #include "FollowActions.h"
-#include "GenericActions.h"
 #include "GenericSpellActions.h"
 #include "MovementActions.h"
 #include "PaladinActions.h"
-#include "EoEActions.h"
-#include "EoETriggers.h"
 #include "ReachTargetActions.h"
 #include "ScriptedCreature.h"
 #include "WarriorActions.h"
@@ -29,17 +33,17 @@ float MalygosMultiplier::GetValue(Action* action)
             return 0.0f;
         }
 
-        if (botAI->IsDps(bot) && dynamic_cast<DpsAssistAction*>(action))
+        if (PlayerbotAI::IsDps(bot) && dynamic_cast<DpsAssistAction*>(action))
         {
             return 0.0f;
         }
 
-        if (botAI->IsRangedDps(bot) && dynamic_cast<DropTargetAction*>(action))
+        if (PlayerbotAI::IsRangedDps(bot) && dynamic_cast<DropTargetAction*>(action))
         {
             return 0.0f;
         }
 
-        if (!botAI->IsMainTank(bot) && dynamic_cast<TankAssistAction*>(action))
+        if (!PlayerbotAI::IsMainTank(bot) && dynamic_cast<TankAssistAction*>(action))
         {
             return 0.0f;
         }
@@ -51,7 +55,7 @@ float MalygosMultiplier::GetValue(Action* action)
     }
     else if (phase == 2)
     {
-        if (botAI->IsDps(bot) && dynamic_cast<DpsAssistAction*>(action))
+        if (PlayerbotAI::IsDps(bot) && dynamic_cast<DpsAssistAction*>(action))
         {
             return 0.0f;
         }

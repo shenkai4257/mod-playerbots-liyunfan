@@ -5,7 +5,6 @@
  */
 
 #include "RtscAction.h"
-
 #include "Playerbots.h"
 #include "RTSCValues.h"
 
@@ -47,7 +46,7 @@ bool RTSCAction::Execute(Event event)
     if (command == "select" && !selected)
     {
         SET_AI_VALUE(bool, "RTSC selected", true);
-        master->SendPlaySpellVisual(bot->GetGUID(), 5036);
+        bot->SendPlaySpellVisual(5036);
         return true;
     }
     else if (command == "cancel")
@@ -55,7 +54,7 @@ bool RTSCAction::Execute(Event event)
         RESET_AI_VALUE(bool, "RTSC selected");
         RESET_AI_VALUE(std::string, "RTSC next spell action");
         if (selected)
-            master->SendPlaySpellVisual(bot->GetGUID(), 6372);
+            bot->SendPlaySpellVisual(6372);
         return true;
     }
     else if (command == "toggle")
@@ -63,12 +62,12 @@ bool RTSCAction::Execute(Event event)
         if (!selected)
         {
             SET_AI_VALUE(bool, "RTSC selected", true);
-            master->SendPlaySpellVisual(bot->GetGUID(), 5036);
+            bot->SendPlaySpellVisual(5036);
         }
         else
         {
             SET_AI_VALUE(bool, "RTSC selected", false);
-            master->SendPlaySpellVisual(bot->GetGUID(), 6372);
+            bot->SendPlaySpellVisual(6372);
         }
 
         return true;

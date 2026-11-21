@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_AKTRIGGERS_H
 #define PLAYERBOTS_AKTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum OldKingdomIDs
 {
@@ -24,21 +30,21 @@ enum OldKingdomIDs
 class NadoxGuardianTrigger : public Trigger
 {
 public:
-    NadoxGuardianTrigger(PlayerbotAI* ai) : Trigger(ai, "elder nadox guardian") {}
+    NadoxGuardianTrigger(PlayerbotAI* botAI) : Trigger(botAI, "elder nadox guardian") {}
     bool IsActive() override;
 };
 
 class JedogaVolunteerTrigger : public Trigger
 {
 public:
-    JedogaVolunteerTrigger(PlayerbotAI* ai) : Trigger(ai, "jedoga volunteer") {}
+    JedogaVolunteerTrigger(PlayerbotAI* botAI) : Trigger(botAI, "jedoga volunteer") {}
     bool IsActive() override;
 };
 
 class ShadowCrashTrigger : public Trigger
 {
 public:
-    ShadowCrashTrigger(PlayerbotAI* ai) : Trigger(ai, "shadow crash") {}
+    ShadowCrashTrigger(PlayerbotAI* botAI) : Trigger(botAI, "shadow crash") {}
     bool IsActive() override;
 };
 

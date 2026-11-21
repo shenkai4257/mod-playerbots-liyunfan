@@ -1,5 +1,12 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "UPActions.h"
+#include "Playerbots.h"
+#include "UPTriggers.h"
 
 bool AvoidFreezingCloudAction::Execute(Event /*event*/)
 {
@@ -46,7 +53,7 @@ bool AvoidSkadiWhirlwindAction::Execute(Event /*event*/)
 
     if (distance < radius + distanceExtra)
     {
-        if (botAI->IsTank(bot))
+        if (PlayerbotAI::IsTank(bot))
         {
             // The boss chases tank during this, leads to jittery stutter-stepping
             // by the tank if we don't pre-move additional range. 2*radius seems ok

@@ -1,3 +1,9 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_BWLTRIGGERS_H
 #define PLAYERBOTS_BWLTRIGGERS_H
 
@@ -17,7 +23,7 @@ public:
 class BwlRazorgoreNotMindControlledTrigger : public Trigger
 {
 public:
-    BwlRazorgoreNotMindControlledTrigger(PlayerbotAI* botAI, const std::string& name = "bwl razorgore not mind controlled") : Trigger(botAI, name) {}
+    BwlRazorgoreNotMindControlledTrigger(PlayerbotAI* botAI, std::string const& name = "bwl razorgore not mind controlled") : Trigger(botAI, name) {}
     bool IsActive() override;
 };
 
@@ -37,6 +43,29 @@ public:
     bool IsActive() override;
 };
 
+// Broodlord Lashlayer
+
+class BwlBroodlordRangedTooCloseTrigger : public Trigger
+{
+public:
+    BwlBroodlordRangedTooCloseTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl broodlord ranged too close") {}
+    bool IsActive() override;
+};
+
+// Firemaw / Ebonroc / Flamegor
+
+class BwlBlackDrakeNotVictimTrigger : public Trigger
+{
+public:
+    BwlBlackDrakeNotVictimTrigger(PlayerbotAI* botAI, std::string bossName)
+        : Trigger(botAI, "bwl " + bossName + " not victim"),
+          bossName(std::move(bossName)) {}
+    bool IsActive() override;
+
+private:
+    const std::string bossName;
+};
+
 // Chromaggus
 
 class BwlAfflictionBronzeTrigger : public Trigger
@@ -48,17 +77,27 @@ public:
 
 // Nefarian
 
-class BwlWildMagicTrigger : public Trigger
+class BwlNefarianPositioningTrigger : public Trigger
 {
 public:
-    BwlWildMagicTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl wild magic") {}
+    BwlNefarianPositioningTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl nefarian positioning") {}
     bool IsActive() override;
 };
 
-class BwlNefarianFearWardTrigger : public Trigger
+class BwlNefarianWildMagicTrigger : public Trigger
 {
 public:
-    BwlNefarianFearWardTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl nefarian fear ward") {}
+    BwlNefarianWildMagicTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl nefarian wild magic") {}
+    bool IsActive() override;
+};
+
+class BwlNefarianCorruptedTotemTrigger : public Trigger
+{
+public:
+    BwlNefarianCorruptedTotemTrigger(PlayerbotAI* botAI)
+        : Trigger(botAI, "bwl nefarian corrupted totem", 1 * IN_MILLISECONDS)
+    {
+    }
     bool IsActive() override;
 };
 

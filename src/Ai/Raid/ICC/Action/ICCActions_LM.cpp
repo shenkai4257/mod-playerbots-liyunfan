@@ -1,11 +1,16 @@
-#include "GenericActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "GenericSpellActions.h"
+#include "ICCActions.h"
+#include "ICCTriggers.h"
 #include "Multiplier.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
-#include "ICCActions.h"
-#include "ICCTriggers.h"
 #include "RtiValue.h"
 #include "Vehicle.h"
 
@@ -26,7 +31,7 @@ static bool IsValidLmMember(Player* member, Player* bot)
 }
 
 // Up to two lowest-GUID ranged bots in same instance, hunter-priority.
-static std::vector<Player*> PickBoneStormRangedTargets(Player* bot, PlayerbotAI* botAI)
+static std::vector<Player*> PickBoneStormRangedTargets(Player* bot)
 {
     std::vector<Player*> result;
 
@@ -40,9 +45,9 @@ static std::vector<Player*> PickBoneStormRangedTargets(Player* bot, PlayerbotAI*
         Player* member = ref->GetSource();
         if (!IsValidLmMember(member, bot))
             continue;
-        if (botAI->IsTank(member))
+        if (PlayerbotAI::IsTank(member))
             continue;
-        if (!botAI->IsRanged(member))
+        if (!PlayerbotAI::IsRanged(member))
             continue;
 
         ranged.push_back(member);
@@ -99,7 +104,7 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
 
     if (isBossInBoneStorm)
     {
-        std::vector<Player*> const rangedTargets = PickBoneStormRangedTargets(bot, botAI);
+        std::vector<Player*> const rangedTargets = PickBoneStormRangedTargets(bot);
         if (std::find(rangedTargets.begin(), rangedTargets.end(), bot) != rangedTargets.end())
         {
             float const anchorDist = bot->GetExactDist2d(ICC_LM_BONE_STORM_AT_POSITION.GetPositionX(),
@@ -176,7 +181,7 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
         float const tankLeash =
             ColdflameNearAnchor(bot, ICC_LM_TANK_POSITION, 10.0f) ? 10.0f : maxDistanceThreshold;
 
-        if (botAI->IsMainTank(bot))
+        if (PlayerbotAI::IsMainTank(bot))
         {
             float const distance =
                 bot->GetExactDist2d(ICC_LM_TANK_POSITION.GetPositionX(), ICC_LM_TANK_POSITION.GetPositionY());
@@ -185,7 +190,7 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
             return false;
         }
 
-        if (botAI->IsAssistTank(bot))
+        if (PlayerbotAI::IsAssistTank(bot))
         {
             float const distance =
                 bot->GetExactDist2d(ICC_LM_TANK_POSITION.GetPositionX(), ICC_LM_TANK_POSITION.GetPositionY());
@@ -208,7 +213,7 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
     float const tankLeash =
         ColdflameNearAnchor(bot, ICC_LM_TANK_POSITION, 10.0f) ? 10.0f : maxDistanceThreshold;
 
-    if (botAI->HasAggro(boss) && botAI->IsMainTank(bot) && boss->GetVictim() == bot)
+    if (botAI->HasAggro(boss) && PlayerbotAI::IsMainTank(bot) && boss->GetVictim() == bot)
     {
         float const distance =
             bot->GetExactDist2d(ICC_LM_TANK_POSITION.GetPositionX(), ICC_LM_TANK_POSITION.GetPositionY());
@@ -217,7 +222,7 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
             return MoveTowardPosition(ICC_LM_TANK_POSITION, maxDistanceThreshold);
     }
 
-    if (botAI->IsAssistTank(bot))
+    if (PlayerbotAI::IsAssistTank(bot))
     {
         float const distance =
             bot->GetExactDist2d(ICC_LM_TANK_POSITION.GetPositionX(), ICC_LM_TANK_POSITION.GetPositionY());
@@ -239,15 +244,10 @@ bool IccLmTankPositionAction::Execute(Event /*event*/)
 
 bool IccLmTankPositionAction::MoveTowardPosition(Position const& position, float incrementSize)
 {
-    float const dirX = position.GetPositionX() - bot->GetPositionX();
-    float const dirY = position.GetPositionY() - bot->GetPositionY();
-    float const length = std::sqrt(dirX * dirX + dirY * dirY);
-
-    float const normalizedDirX = dirX / length;
-    float const normalizedDirY = dirY / length;
-
-    float const moveX = bot->GetPositionX() + normalizedDirX * incrementSize;
-    float const moveY = bot->GetPositionY() + normalizedDirY * incrementSize;
+    float moveX;
+    float moveY;
+    if (!IccStepToward(bot, position, incrementSize, moveX, moveY))
+        return false;
 
     return MoveTo(bot->GetMapId(), moveX, moveY, bot->GetPositionZ(), false, false, false, false,
                   MovementPriority::MOVEMENT_COMBAT);
@@ -275,7 +275,7 @@ bool IccSpikeAction::Execute(Event /*event*/)
     HandleNoSpikesMarking(boss);
 
     // Melee non-tanks in front of boss should reposition
-    if (boss->isInFront(bot) && !botAI->IsTank(bot) && !isBossInBoneStorm)
+    if (boss->isInFront(bot) && !PlayerbotAI::IsTank(bot) && !isBossInBoneStorm)
     {
         Position const safePosition = {-390.6757f, 2230.5283f, 0.0f};
         float const distance = bot->GetExactDist2d(safePosition.GetPositionX(), safePosition.GetPositionY());
@@ -291,26 +291,12 @@ std::vector<Unit*> IccSpikeAction::FindAliveSpikes()
     // All difficulty variants — AzerothCore spawns a different entry per difficulty mode.
     // Bonespike NPCs have UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_IMMUNE_TO_PC so they
     // never appear in "possible targets no los". Use a direct grid search instead.
-    static uint32 const spikeEntries[] = {
-        NPC_SPIKE1, NPC_SPIKE1_10H, NPC_SPIKE1_25N, NPC_SPIKE1_25H,
-        NPC_SPIKE2, NPC_SPIKE2_10H, NPC_SPIKE2_25N, NPC_SPIKE2_25H,
-        NPC_SPIKE3, NPC_SPIKE3_10H, NPC_SPIKE3_25N, NPC_SPIKE3_25H
-    };
-
-    std::vector<Unit*> spikes;
-    for (uint32 const entry : spikeEntries)
-    {
-        std::list<Creature*> found;
-        bot->GetCreatureListWithEntryInGrid(found, entry, 200.0f);
-        for (Creature* c : found)
-        {
-            if (c && c->IsAlive())
-                spikes.push_back(c);
-        }
-    }
-
-    std::sort(spikes.begin(), spikes.end(), [](Unit const* a, Unit const* b) { return a->GetGUID() < b->GetGUID(); });
-    return spikes;
+    std::vector<Creature*> const found = IccGetCreaturesByEntries(bot,
+        {NPC_SPIKE1, NPC_SPIKE1_10H, NPC_SPIKE1_25N, NPC_SPIKE1_25H,
+         NPC_SPIKE2, NPC_SPIKE2_10H, NPC_SPIKE2_25N, NPC_SPIKE2_25H,
+         NPC_SPIKE3, NPC_SPIKE3_10H, NPC_SPIKE3_25N, NPC_SPIKE3_25H},
+        200.0f);
+    return std::vector<Unit*>(found.begin(), found.end());
 }
 
 bool IccSpikeAction::HandleSpikeMarking(std::vector<Unit*> const& spikes, Unit* boss)
@@ -319,7 +305,7 @@ bool IccSpikeAction::HandleSpikeMarking(std::vector<Unit*> const& spikes, Unit* 
     if (!group)
         return false;
 
-    static uint8 const Icons[] = {7, 6, 0}; // Skull, Cross, Star
+    static uint8 const Icons[] = {RtiTargetValue::skullIndex, RtiTargetValue::crossIndex, RtiTargetValue::starIndex};
 
     std::vector<ObjectGuid> aliveSpikeGuids;
     aliveSpikeGuids.reserve(spikes.size());
@@ -341,19 +327,19 @@ bool IccSpikeAction::HandleSpikeMarking(std::vector<Unit*> const& spikes, Unit* 
 
     // Check if the only spike left is a tank spike
     Player* firstSpikeVictim = spikes.size() == 1 ? GetSpikeVictim(spikes[0]) : nullptr;
-    bool const onlyTankSpike = firstSpikeVictim && botAI->IsTank(firstSpikeVictim);
+    bool const onlyTankSpike = firstSpikeVictim && PlayerbotAI::IsTank(firstSpikeVictim);
 
     if (onlyTankSpike)
     {
         // Skull on spike, Cross on boss
-        if (group->GetTargetIcon(7) != spikes[0]->GetGUID())
-            group->SetTargetIcon(7, bot->GetGUID(), spikes[0]->GetGUID());
+        if (group->GetTargetIcon(RtiTargetValue::skullIndex) != spikes[0]->GetGUID())
+            group->SetTargetIcon(RtiTargetValue::skullIndex, bot->GetGUID(), spikes[0]->GetGUID());
 
-        if (group->GetTargetIcon(6) != boss->GetGUID())
-            group->SetTargetIcon(6, bot->GetGUID(), boss->GetGUID());
+        if (group->GetTargetIcon(RtiTargetValue::crossIndex) != boss->GetGUID())
+            group->SetTargetIcon(RtiTargetValue::crossIndex, bot->GetGUID(), boss->GetGUID());
 
-        if (!group->GetTargetIcon(0).IsEmpty())
-            group->SetTargetIcon(0, bot->GetGUID(), ObjectGuid::Empty);
+        if (!group->GetTargetIcon(RtiTargetValue::starIndex).IsEmpty())
+            group->SetTargetIcon(RtiTargetValue::starIndex, bot->GetGUID(), ObjectGuid::Empty);
 
         return true;
     }
@@ -390,8 +376,8 @@ bool IccSpikeAction::HandleNoSpikesMarking(Unit* boss)
     }
 
     // Skull on boss
-    if (group->GetTargetIcon(7) != boss->GetGUID())
-        group->SetTargetIcon(7, bot->GetGUID(), boss->GetGUID());
+    if (group->GetTargetIcon(RtiTargetValue::skullIndex) != boss->GetGUID())
+        group->SetTargetIcon(RtiTargetValue::skullIndex, bot->GetGUID(), boss->GetGUID());
 
     // Per-bot context value -- every bot needs this for its own ChooseTarget.
     context->GetValue<std::string>("rti")->Set("skull");
@@ -404,13 +390,13 @@ bool IccSpikeAction::HandleSpikeAssignment(std::vector<Unit*> const& spikes, Uni
     if (!group)
         return false;
 
-    bool const isMelee = botAI->IsMelee(bot) && !botAI->IsTank(bot);
-    bool const isAssistTank = botAI->IsAssistTank(bot);
+    bool const isMelee = PlayerbotAI::IsMelee(bot) && !PlayerbotAI::IsTank(bot);
+    bool const isAssistTank = PlayerbotAI::IsAssistTank(bot);
 
     auto isTankSpike = [&](Unit* spike) -> bool
     {
         Player* victim = GetSpikeVictim(spike);
-        return victim && botAI->IsTank(victim);
+        return victim && PlayerbotAI::IsTank(victim);
     };
 
     // Assist tank: only attack tank spike, ignore all others
@@ -482,10 +468,10 @@ bool IccSpikeAction::HandleSpikeAssignment(std::vector<Unit*> const& spikes, Uni
         if (!member || !member->IsAlive() || member->HasAura(SPELL_LM_IMPALED))
             continue;
 
-        if (botAI->IsMainTank(member) || botAI->IsAssistTank(member))
+        if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
             continue;
 
-        if (botAI->IsMelee(member) && !botAI->IsTank(member))
+        if (PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsTank(member))
             continue;
 
         rangedMembers.push_back(member);
@@ -502,14 +488,14 @@ bool IccSpikeAction::HandleSpikeAssignment(std::vector<Unit*> const& spikes, Uni
         return false;
 
     size_t const myIndex = std::distance(rangedMembers.begin(), it);
-    std::vector<size_t> const groupSizes = CalculateBalancedGroupSizes(rangedMembers.size(), spikes.size());
-    size_t const spikeIndex = GetAssignedSpikeIndex(myIndex, groupSizes);
+    std::vector<size_t> const groupSizes = IccBalancedGroupSizes(rangedMembers.size(), spikes.size());
+    size_t const spikeIndex = IccAssignedBucketIndex(myIndex, groupSizes);
 
     if (spikeIndex >= spikes.size())
         return false;
 
     Unit* mySpike = spikes[spikeIndex];
-    context->GetValue<std::string>("rti")->Set(GetRTIValueForSpike(spikeIndex));
+    context->GetValue<std::string>("rti")->Set(IccRtiNameForBucket(spikeIndex));
 
     Attack(mySpike);
     return false;
@@ -517,65 +503,13 @@ bool IccSpikeAction::HandleSpikeAssignment(std::vector<Unit*> const& spikes, Uni
 
 bool IccSpikeAction::MoveTowardPosition(Position const& position, float incrementSize)
 {
-    float const dirX = position.GetPositionX() - bot->GetPositionX();
-    float const dirY = position.GetPositionY() - bot->GetPositionY();
-    float const length = std::sqrt(dirX * dirX + dirY * dirY);
-
-    float const normalizedDirX = dirX / length;
-    float const normalizedDirY = dirY / length;
-
-    float const moveX = bot->GetPositionX() + normalizedDirX * incrementSize;
-    float const moveY = bot->GetPositionY() + normalizedDirY * incrementSize;
+    float moveX;
+    float moveY;
+    if (!IccStepToward(bot, position, incrementSize, moveX, moveY))
+        return false;
 
     return MoveTo(bot->GetMapId(), moveX, moveY, bot->GetPositionZ(), false, false, false, false,
                   MovementPriority::MOVEMENT_COMBAT);
-}
-
-std::vector<size_t> IccSpikeAction::CalculateBalancedGroupSizes(size_t totalMembers, size_t numSpikes)
-{
-    std::vector<size_t> groupSizes(numSpikes, 0);
-    if (numSpikes == 0)
-        return groupSizes;
-
-    size_t const baseSize = totalMembers / numSpikes;
-    size_t const remainder = totalMembers % numSpikes;
-
-    for (size_t i = 0; i < numSpikes; ++i)
-    {
-        groupSizes[i] = baseSize;
-        if (i < remainder)
-            ++groupSizes[i];
-    }
-
-    return groupSizes;
-}
-
-size_t IccSpikeAction::GetAssignedSpikeIndex(size_t memberIndex, std::vector<size_t> const& groupSizes)
-{
-    size_t cursor = 0;
-    for (size_t spikeIndex = 0; spikeIndex < groupSizes.size(); ++spikeIndex)
-    {
-        if (memberIndex < cursor + groupSizes[spikeIndex])
-            return spikeIndex;
-        cursor += groupSizes[spikeIndex];
-    }
-
-    return 0;
-}
-
-std::string IccSpikeAction::GetRTIValueForSpike(size_t spikeIndex)
-{
-    switch (spikeIndex)
-    {
-        case 0:
-            return "skull";
-        case 1:
-            return "cross";
-        case 2:
-            return "star";
-        default:
-            return "skull";
-    }
 }
 
 Player* IccSpikeAction::GetSpikeVictim(Unit* spike)

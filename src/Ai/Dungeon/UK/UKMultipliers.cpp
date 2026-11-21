@@ -1,7 +1,13 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "UKMultipliers.h"
-#include "UKActions.h"
-#include "GenericSpellActions.h"
 #include "ChooseTargetActions.h"
+#include "GenericSpellActions.h"
+#include "UKActions.h"
 #include "UKTriggers.h"
 
 float PrinceKelesethMultiplier::GetValue(Action* action)
@@ -42,7 +48,7 @@ float SkarvaldAndDalronnMultiplier::GetValue(Action* action)
 float IngvarThePlundererMultiplier::GetValue(Action* action)
 {
     Unit* boss = AI_VALUE2(Unit*, "find target", "ingvar the plunderer");
-    bool isTank = botAI->IsTank(bot);
+    bool isTank = PlayerbotAI::IsTank(bot);
     if (!boss) { return 1.0f; }
 
     // Prevent movement actions overriding current movement, we're probably dodging a slam

@@ -5,7 +5,6 @@
  */
 
 #include "GenericWarriorStrategy.h"
-
 #include "Playerbots.h"
 
 class GenericWarriorStrategyActionNodeFactory : public NamedObjectFactory<ActionNode>
@@ -39,10 +38,10 @@ void GenericWarriorStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         "fear sleep sap", { NextAction("berserker rage", ACTION_EMERGENCY + 1) }));
 }
 
-class WarrirorAoeStrategyActionNodeFactory : public NamedObjectFactory<ActionNode>
+class WarriorAoeStrategyActionNodeFactory : public NamedObjectFactory<ActionNode>
 {
 public:
-    WarrirorAoeStrategyActionNodeFactory()
+    WarriorAoeStrategyActionNodeFactory()
     {
 
     }
@@ -51,12 +50,12 @@ private:
 
 };
 
-WarrirorAoeStrategy::WarrirorAoeStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
+WarriorAoeStrategy::WarriorAoeStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new WarrirorAoeStrategyActionNodeFactory());
+    actionNodeFactories.Add(new WarriorAoeStrategyActionNodeFactory());
 }
 
-void WarrirorAoeStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+void WarriorAoeStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(new TriggerNode(
         "light aoe", { NextAction("sweeping strikes", ACTION_HIGH + 7),

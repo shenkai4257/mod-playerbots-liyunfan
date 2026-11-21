@@ -1,17 +1,22 @@
-#include "HoLMultipliers.h"
-#include "HoLActions.h"
-#include "GenericSpellActions.h"
-#include "ChooseTargetActions.h"
-#include "MovementActions.h"
-#include "HoLTriggers.h"
-#include "Action.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "HoLMultipliers.h"
+#include "Action.h"
+#include "ChooseTargetActions.h"
+#include "GenericSpellActions.h"
+#include "HoLActions.h"
+#include "HoLTriggers.h"
+#include "MovementActions.h"
 #include "WarriorActions.h"
 
 float BjarngrimMultiplier::GetValue(Action* action)
 {
     Unit* boss = AI_VALUE2(Unit*, "find target", "general bjarngrim");
-    if (!boss || botAI->IsHeal(bot)) { return 1.0f; }
+    if (!boss || PlayerbotAI::IsHeal(bot)) { return 1.0f; }
 
     if (boss->HasUnitState(UNIT_STATE_CASTING) && boss->FindCurrentSpellBySpellId(SPELL_WHIRLWIND_BJARNGRIM))
     {
@@ -37,7 +42,7 @@ float BjarngrimMultiplier::GetValue(Action* action)
         }
     }
 
-    if (!boss_add || botAI->IsTank(bot)) { return 1.0f; }
+    if (!boss_add || PlayerbotAI::IsTank(bot)) { return 1.0f; }
 
     if (dynamic_cast<DpsAssistAction*>(action))
     {
@@ -55,7 +60,7 @@ float BjarngrimMultiplier::GetValue(Action* action)
 float VolkhanMultiplier::GetValue(Action* action)
 {
     Unit* boss = AI_VALUE2(Unit*, "find target", "volkhan");
-    if (!boss || botAI->IsTank(bot) || botAI->IsHeal(bot)) { return 1.0f; }
+    if (!boss || PlayerbotAI::IsTank(bot) || PlayerbotAI::IsHeal(bot)) { return 1.0f; }
 
     if (dynamic_cast<DpsAssistAction*>(action))
     {

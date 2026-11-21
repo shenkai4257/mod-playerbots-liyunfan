@@ -5,7 +5,6 @@
  */
 
 #include "AreaTriggerAction.h"
-
 #include "Event.h"
 #include "LastMovementValue.h"
 #include "PlayerbotTextMgr.h"
@@ -14,7 +13,7 @@
 
 bool ReachAreaTriggerAction::Execute(Event event)
 {
-    if (botAI->IsRealPlayer())  // Do not trigger own area trigger.
+    if (IsSelfBot(bot))  // SelfBots reach their own area triggers through the client.
         return false;
 
     uint32 triggerId;
@@ -53,7 +52,7 @@ bool ReachAreaTriggerAction::Execute(Event event)
         /*forceDestination*/ false);
 
     float distance = bot->GetDistance(at->x, at->y, at->z);
-    float delay = 1000.0f * distance / bot->GetSpeed(MOVE_RUN) + sPlayerbotAIConfig.reactDelay;
+    float delay = IN_MILLISECONDS * distance / bot->GetSpeed(MOVE_RUN) + sPlayerbotAIConfig.ReactDelay;
     botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "area_trigger_wait_for_me", "Wait for me", {}));
     botAI->SetNextCheckDelay(delay);

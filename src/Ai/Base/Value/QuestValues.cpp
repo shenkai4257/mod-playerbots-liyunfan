@@ -9,6 +9,7 @@
 #include "MapMgr.h"
 #include "Playerbots.h"
 #include "SharedValueContext.h"
+#include <array>
 
 // What kind of a relation does this entry have with this quest.
 entryQuestRelationMap EntryQuestRelationMapValue::Calculate()
@@ -61,17 +62,34 @@ void FindQuestObjectData::GetObjectiveEntries()
     relationMap = GAI_VALUE(entryQuestRelationMap, "entry quest relation");
 }
 
+// Every entry a spawn point can hold: the base from `creature`, plus up to two
+// `creature_multispawn` alternates rolled between on respawn. 0 = no alternate.
+static std::array<uint32, 3> SpawnEntries(CreatureData const& creData)
+{
+    return { creData.id, creData.id2, creData.id3 };
+}
+
 // Data worker. Checks for a specific creature what quest they are needed for and puts them in the proper place in the
 // quest map.
 void FindQuestObjectData::operator()(CreatureData const& creData)
 {
-    uint32 entry = creData.id;
-
-    for (auto& relation : relationMap[entry])
+    // The GuidPosition keeps the spawn's base entry, which can disagree with the alternate it
+    // is filed under. It resolves by spawnId, and consumers read the map key.
+    for (uint32 entry : SpawnEntries(creData))
     {
-        uint32 questId = relation.first;
-        uint32 flag = relation.second;
-        data[questId][flag][entry].push_back(GuidPosition(creData));
+        if (!entry)
+            continue;
+
+        auto relations = relationMap.find(int32(entry));
+        if (relations == relationMap.end())
+            continue;
+
+        for (auto& relation : relations->second)
+        {
+            uint32 questId = relation.first;
+            uint32 flag = relation.second;
+            data[questId][flag][entry].push_back(GuidPosition(creData));
+        }
     }
 }
 
@@ -99,89 +117,6 @@ questGuidpMap QuestGuidpMapValue::Calculate()
         worker(itr.second);
 
     return worker.GetResult();
-}
-
-// Selects all questgivers for a specific level (range).
-questGiverMap QuestGiversValue::Calculate()
-{
-    uint32 level = 0;
-    std::string const q = getQualifier();
-    bool hasQualifier = !q.empty();
-
-    if (hasQualifier)
-        level = stoi(q);
-
-    questGuidpMap questMap = GAI_VALUE(questGuidpMap, "quest guidp map");
-
-    questGiverMap guidps;
-
-    for (auto& qPair : questMap)
-    {
-        for (auto& entry : qPair.second[(int)QuestRelationFlag::questGiver])
-        {
-            for (auto& guidp : entry.second)
-            {
-                uint32 questId = qPair.first;
-
-                if (hasQualifier)
-                {
-                    Quest const* quest = sObjectMgr->GetQuestTemplate(questId);
-
-                    if (quest && (level < quest->GetMinLevel() || (int)level > quest->GetQuestLevel() + 10))
-                        continue;
-                }
-
-                guidps[questId].push_back(guidp);
-            }
-        }
-    }
-
-    return guidps;
-}
-
-std::vector<GuidPosition> ActiveQuestGiversValue::Calculate()
-{
-    questGiverMap qGivers = GAI_VALUE2(questGiverMap, "quest givers", bot->GetLevel());
-
-    std::vector<GuidPosition> retQuestGivers;
-
-    for (auto& qGiver : qGivers)
-    {
-        uint32 questId = qGiver.first;
-        Quest const* quest = sObjectMgr->GetQuestTemplate(questId);
-        if (!quest)
-        {
-            continue;
-        }
-
-        if (!bot->CanTakeQuest(quest, false))
-            continue;
-
-        QuestStatus status = bot->GetQuestStatus(questId);
-
-        if (status != QUEST_STATUS_NONE)
-            continue;
-
-        for (auto& guidp : qGiver.second)
-        {
-            CreatureTemplate const* creatureTemplate = guidp.GetCreatureTemplate();
-
-            if (creatureTemplate)
-            {
-                if (bot->GetFactionReactionTo(bot->GetFactionTemplateEntry(),
-                                              sFactionTemplateStore.LookupEntry(creatureTemplate->faction)) <
-                    REP_FRIENDLY)
-                    continue;
-            }
-
-            if (!guidp.IsCreatureOrGOAccessible())
-                continue;
-
-            retQuestGivers.push_back(guidp);
-        }
-    }
-
-    return retQuestGivers;
 }
 
 std::vector<GuidPosition> ActiveQuestTakersValue::Calculate()
@@ -278,7 +213,7 @@ std::vector<GuidPosition> ActiveQuestObjectivesValue::Calculate()
 
             if (quest->RequiredNpcOrGoCount[objective])
             {
-                uint32 reqCount = quest->RequiredItemCount[objective];
+                uint32 reqCount = quest->RequiredNpcOrGoCount[objective];
                 uint32 hasCount = statusData.CreatureOrGOCount[objective];
 
                 if (!reqCount || hasCount >= reqCount)

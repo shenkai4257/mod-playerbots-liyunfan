@@ -1,5 +1,11 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "AKActions.h"
+#include "Playerbots.h"
 
 bool AttackNadoxGuardianAction::Execute(Event /*event*/)
 {
@@ -66,7 +72,7 @@ bool AvoidShadowCrashAction::Execute(Event /*event*/)
     }
 
     // Otherwise ranged members passively spread, to avoid AoE overlap
-    if (botAI->IsMelee(bot)) { return false; }
+    if (PlayerbotAI::IsMelee(bot)) { return false; }
 
     GuidVector members = AI_VALUE(GuidVector, "group members");
     for (auto& member : members)

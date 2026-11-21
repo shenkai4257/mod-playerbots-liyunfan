@@ -5,7 +5,6 @@
  */
 
 #include "AttackAction.h"
-
 #include "CreatureAI.h"
 #include "Event.h"
 #include "LastMovementValue.h"
@@ -13,8 +12,8 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
+#include "PvpValues.h"
 #include "ServerFacade.h"
-#include "SharedDefines.h"
 #include "Unit.h"
 #include "WaitForAttackStrategy.h"
 
@@ -123,6 +122,9 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
         return false;
     }
 
+    if (IsUnavailableCombatTarget(bot, target))
+        return false;
+
     if (!bot->IsWithinLOSInMap(target))
     {
         if (verbose)
@@ -140,7 +142,7 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
         return false;
 
     Unit* oldTarget = context->GetValue<Unit*>("current target")->Get();
-    bool shouldMelee = bot->IsWithinMeleeRange(target) || botAI->IsMelee(bot);
+    bool shouldMelee = bot->IsWithinMeleeRange(target) || PlayerbotAI::IsMelee(bot);
 
     bool sameTarget = oldTarget == target && bot->GetVictim() == target;
     bool inCombat = botAI->GetState() == BOT_STATE_COMBAT;
@@ -222,3 +224,15 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
 bool AttackDuelOpponentAction::isUseful() { return AI_VALUE(Unit*, "duel target"); }
 
 bool AttackDuelOpponentAction::Execute(Event /*event*/) { return Attack(AI_VALUE(Unit*, "duel target")); }
+
+bool MeleeAction::isUseful()
+{
+    // do not allow if can't attack from vehicle
+    if (botAI->IsInVehicle() && !botAI->IsInVehicle(false, false, true))
+        return false;
+
+    // Do not start autoattack while prowled — let opener spells break stealth intentionally.
+    // Future rogue stealth implementation should use this instead:
+    // return !(botAI->HasAura("stealth", bot) || botAI->HasAura("prowl", bot));
+    return !botAI->HasAura("prowl", bot);
+}

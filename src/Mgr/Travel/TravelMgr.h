@@ -7,15 +7,14 @@
 #ifndef PLAYERBOTS_TRAVELMGR_H
 #define PLAYERBOTS_TRAVELMGR_H
 
-#include <boost/functional/hash.hpp>
-#include <map>
-#include <random>
-
 #include "AiObject.h"
 #include "CreatureData.h"
 #include "GameObject.h"
 #include "GridDefines.h"
 #include "PlayerbotAIConfig.h"
+#include <boost/functional/hash.hpp>
+#include <map>
+#include <random>
 
 class Creature;
 class GuidPosition;
@@ -92,7 +91,7 @@ public:
         : WorldLocation(mapid, x, y, z, orientation)
     {
     }
-    WorldPosition(uint32 mapId, const Position& pos);
+    WorldPosition(uint32 mapId, Position const& pos);
     WorldPosition(WorldObject const* wo);
     WorldPosition(std::vector<WorldPosition*> list, WorldPositionConst conType);
     WorldPosition(std::vector<WorldPosition> list, WorldPositionConst conType);
@@ -101,9 +100,9 @@ public:
     WorldPosition(uint32 mapid, mGridCoord grid);
 
     //Setters
-    void set(const WorldLocation& pos);
-    void set(const WorldObject* wo);
-    void set(const WorldPosition& pos);
+    void set(WorldLocation const& pos);
+    void set(WorldObject const* wo);
+    void set(WorldPosition const& pos);
     void setMapId(uint32 id);
     void setX(float x);
     void setY(float y);
@@ -116,8 +115,8 @@ public:
 
     // Getters
     operator bool() const;
-    friend bool operator==(WorldPosition const& p1, const WorldPosition& p2);
-    friend bool operator!=(WorldPosition const& p1, const WorldPosition& p2);
+    friend bool operator==(WorldPosition const& p1, WorldPosition const& p2);
+    friend bool operator!=(WorldPosition const& p1, WorldPosition const& p2);
 
     WorldPosition& operator=(WorldPosition const&) = default;
     WorldPosition& operator+=(WorldPosition const& p1);
@@ -127,7 +126,7 @@ public:
     std::string const print();
 
     std::string const to_string();
-    std::vector<std::string> split(const std::string& s, char delimiter);
+    std::vector<std::string> split(std::string const& s, char delimiter);
 
     void printWKT(std::vector<WorldPosition> points, std::ostringstream& out, uint32 dim = 0, bool loop = false);
     void printWKT(std::ostringstream& out) { printWKT({*this}, out); }
@@ -298,11 +297,11 @@ public:
 
     std::vector<WorldPosition> getPathTo(WorldPosition endPos, Unit* bot) { return endPos.getPathFrom(*this, bot); }
 
-    bool isPathTo(std::vector<WorldPosition> path, float maxDistance = sPlayerbotAIConfig.targetPosRecalcDistance)
+    bool isPathTo(std::vector<WorldPosition> path, float maxDistance = sPlayerbotAIConfig.TargetPosRecalcDistance)
     {
         return !path.empty() && distance(path.back()) < maxDistance;
     };
-    bool cropPathTo(std::vector<WorldPosition>& path, float maxDistance = sPlayerbotAIConfig.targetPosRecalcDistance);
+    bool cropPathTo(std::vector<WorldPosition>& path, float maxDistance = sPlayerbotAIConfig.TargetPosRecalcDistance);
     bool canPathTo(WorldPosition endPos, Unit* bot) { return endPos.isPathTo(getPathTo(endPos, bot)); }
 
     float getPathLength(std::vector<WorldPosition> points)
@@ -567,18 +566,18 @@ protected:
     uint32 visitors = 0;
     uint32 maxVisitors = 0;
     uint32 maxVisitorsPerPoint = 0;
-    uint32 expireDelay = 5 * 1000;
-    uint32 cooldownDelay = 60 * 1000;
+    uint32 expireDelay = 5 * IN_MILLISECONDS;
+    uint32 cooldownDelay = MINUTE * IN_MILLISECONDS;
 };
 
 // A travel target that is always inactive and jumps to cooldown.
 class NullTravelDestination : public TravelDestination
 {
 public:
-    NullTravelDestination(uint32 cooldownDelay1 = 5 * 60 * 1000) : TravelDestination()
+    NullTravelDestination(uint32 cooldownDelay1 = 5 * MINUTE * IN_MILLISECONDS) : TravelDestination()
     {
         cooldownDelay = cooldownDelay1;
-    };
+    }
 
     Quest const* GetQuestTemplate() override { return nullptr; }
 
@@ -878,11 +877,16 @@ public:
     FlightMasterInfo const* GetNearestFlightMasterInfo(Player* bot) const;
     std::vector<std::vector<uint32>> GetOptimalFlightDestinations(Player* bot);
     const std::vector<WorldLocation> GetTeleportLocations(Player* bot);
+    const std::vector<WorldLocation> GetTeleportLocations(Player* bot, uint32 level);
     const std::vector<WorldLocation> GetTravelHubs(Player* bot);
     std::vector<WorldLocation> GetCityLocations(Player* bot);
+    // Returns the world locations of quest givers the bot can accept a quest from right now
+    // (level/faction valid, no unmet prereq, not in progress, quest-log + item room).
+    // Backed by a startup-built per-(level, team) index; empty when there is no valid giver.
+    std::vector<WorldLocation> GetValidQuestGiverLocations(Player* bot);
     std::vector<uint32> GetFlightNodesInZone(uint32 zoneId, TeamId team, uint32 excludeNode = 0) const;
     bool SelectAuctioneerByMap(Player* bot, NpcLocation& outAuctioneer);
-    const std::vector<WorldLocation>& GetLocsPerLevelCache(uint8 level) { return locsPerLevelCache[level]; }
+    std::vector<WorldLocation> const& GetLocsPerLevelCache(uint8 level) { return locsPerLevelCache[level]; }
 
     template <class D, class W, class URBG>
     void weighted_shuffle(D first, D last, W first_weight, W last_weight, URBG&& g)
@@ -968,8 +972,8 @@ private:
     TravelMgr() = default;
     ~TravelMgr() = default;
 
-    TravelMgr(const TravelMgr&) = delete;
-    TravelMgr& operator=(const TravelMgr&) = delete;
+    TravelMgr(TravelMgr const&) = delete;
+    TravelMgr& operator=(TravelMgr const&) = delete;
 
     TravelMgr(TravelMgr&&) = delete;
     TravelMgr& operator=(TravelMgr&&) = delete;
@@ -977,6 +981,7 @@ private:
     // Navigation initialization
     void PrepareZone2LevelBracket();
     void PrepareDestinationCache();
+    void PrepareQuestGiverTeleportIndex();
 
     // Internal types
     struct LevelBracket
@@ -992,6 +997,18 @@ private:
         uint32 entry;
     };
 
+    // One (quest, giver-spawn) pair a bot might accept. Static fields are pre-extracted so
+    // GetValidQuestGiverLocations can early-exit on level/race/class without touching the Quest.
+    struct QuestGiverTeleportCandidate
+    {
+        uint32 questId;
+        uint32 giverEntry;       // creature entry (used for the fine faction-reaction check at call time)
+        WorldLocation loc;       // precomputed: ~5y in front of the giver spawn
+        uint16 questLevel;       // 0 = unknown (falls back to bot level), mirrors Player::GetQuestLevel
+        uint32 allowableRaces;   // 0 = all; Quest::GetAllowableRaces bitmask
+        uint32 requiredClasses;  // 0 = all; Quest::GetRequiredClasses bitmask
+    };
+
     // Navigation caches
     std::map<uint32, FlightMasterInfo> allianceFlightMasterCache;
     std::map<uint32, FlightMasterInfo> hordeFlightMasterCache;
@@ -1002,6 +1019,9 @@ private:
     std::map<uint8, std::vector<WorldLocation>> locsPerLevelCache;
     std::unordered_map<uint32, std::vector<WorldLocation>> creatureSpawnsByTemplate;
     std::map<uint32, LevelBracket> zone2LevelBracket;
+    // Quest-giver teleport index, built once at startup by PrepareQuestGiverTeleportIndex.
+    // Keyed by (level -> team -> candidates) so the hot path is an O(1) bucket lookup.
+    std::map<uint32, std::map<TeamId, std::vector<QuestGiverTeleportCandidate>>> questGiverTeleportIndex;
 };
 
 #define sTravelMgr TravelMgr::instance()

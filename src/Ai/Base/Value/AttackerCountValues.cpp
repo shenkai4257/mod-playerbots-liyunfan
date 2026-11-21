@@ -5,7 +5,6 @@
  */
 
 #include "AttackerCountValues.h"
-
 #include "Playerbots.h"
 #include "SharedDefines.h"
 
@@ -23,9 +22,9 @@ bool HasAggroValue::Calculate()
     {
         return true;
     }
-    bool isMT = botAI->IsExplicitMainTank(bot);
-    if (victim &&
-        (victim->GetGUID() == bot->GetGUID() || (!isMT && victim->ToPlayer() && botAI->IsTank(victim->ToPlayer()))))
+    bool isMT = PlayerbotAI::IsExplicitMainTank(bot);
+    if (victim && (victim->GetGUID() == bot->GetGUID() ||
+                   (!isMT && victim->ToPlayer() && PlayerbotAI::IsTank(victim->ToPlayer()))))
     {
         return true;
     }
@@ -35,7 +34,7 @@ bool HasAggroValue::Calculate()
 uint8 AttackerCountValue::Calculate()
 {
     uint32 count = 0;
-    float range = sPlayerbotAIConfig.sightDistance;
+    float range = sPlayerbotAIConfig.SightDistance;
 
     GuidVector attackers = context->GetValue<GuidVector>("attackers")->Get();
     for (ObjectGuid const guid : attackers)

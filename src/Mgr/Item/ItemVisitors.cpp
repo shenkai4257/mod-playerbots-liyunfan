@@ -5,7 +5,6 @@
  */
 
 #include "ItemVisitors.h"
-
 #include "Playerbots.h"
 
 bool FindUsableItemVisitor::Visit(Item* item)
@@ -14,6 +13,14 @@ bool FindUsableItemVisitor::Visit(Item* item)
         return FindItemVisitor::Visit(item);
 
     return true;
+}
+
+bool FindStartQuestItemVisitor::Visit(Item* item)
+{
+    if (!item->GetTemplate()->StartQuest)
+        return true;
+
+    return FindUsableItemVisitor::Visit(item);
 }
 
 bool FindPotionVisitor::Accept(ItemTemplate const* proto)

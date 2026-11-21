@@ -1,8 +1,14 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "NexMultipliers.h"
-#include "NexActions.h"
-#include "GenericSpellActions.h"
 #include "ChooseTargetActions.h"
+#include "GenericSpellActions.h"
 #include "MovementActions.h"
+#include "NexActions.h"
 #include "NexTriggers.h"
 
 float FactionCommanderMultiplier::GetValue(Action* action)
@@ -87,7 +93,7 @@ float OrmorokMultiplier::GetValue(Action* action)
     // This boss is annoying and shuffles around a lot. Don't let tank move once fight has started.
     // Extra checks are to allow the tank to close distance and engage the boss initially
     if (dynamic_cast<MovementAction*>(action) && !dynamic_cast<DodgeSpikesAction*>(action)
-        && botAI->IsTank(bot) && bot->IsWithinMeleeRange(boss)
+        && PlayerbotAI::IsTank(bot) && bot->IsWithinMeleeRange(boss)
         && AI_VALUE2(bool, "facing", "current target"))
         {
             return 0.0f;

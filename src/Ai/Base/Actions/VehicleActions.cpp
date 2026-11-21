@@ -5,11 +5,11 @@
  */
 
 #include "VehicleActions.h"
-
 #include "BattlegroundIC.h"
 #include "ItemVisitors.h"
 #include "ObjectDefines.h"
 #include "Playerbots.h"
+#include "PositionValue.h"
 #include "QuestValues.h"
 #include "ServerFacade.h"
 #include "Unit.h"
@@ -89,6 +89,12 @@ bool EnterVehicleAction::EnterVehicle(Unit* vehicleBase, bool moveIfFar)
 
     if (!bot->IsOnVehicle(vehicleBase))
         return false;
+
+    // a siege position is only for the vehicle it was set for: the tactics set one for this vehicle
+    PositionMap& posMap = context->GetValue<PositionMap&>("position")->Get();
+    PositionInfo siegePos = posMap["bg siege"];
+    siegePos.Reset();
+    posMap["bg siege"] = siegePos;
 
     // dismount because bots can enter vehicle on mount
     WorldPacket emptyPacket;

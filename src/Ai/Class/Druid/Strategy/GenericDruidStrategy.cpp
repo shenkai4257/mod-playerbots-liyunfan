@@ -5,7 +5,6 @@
  */
 
 #include "GenericDruidStrategy.h"
-
 #include "AiFactory.h"
 #include "FeralDruidStrategy.h"
 #include "Playerbots.h"
@@ -150,7 +149,7 @@ void DruidCcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void DruidHealerDpsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(
-        new TriggerNode("healer should attack",
+        new TriggerNode("healer should attack and not blanketing",
                         {
                             NextAction("cancel tree form", 5.4f),
                             NextAction("moonfire",         5.3f),

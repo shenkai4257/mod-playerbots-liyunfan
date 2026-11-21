@@ -1,60 +1,20 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "GenericSpellActions.h"
 #include "ICCActions.h"
+#include "ICCTriggers.h"
+#include "Multiplier.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
-#include "Vehicle.h"
 #include "RtiValue.h"
-#include "GenericSpellActions.h"
-#include "GenericActions.h"
-#include "ICCTriggers.h"
-#include "Multiplier.h"
+#include "Vehicle.h"
 
 static float const BPC_FLOOR_Z = 361.18222f;
-
-static bool CastClassTaunt(Player* bot, PlayerbotAI* botAI, Unit* target)
-{
-    if (!target || !target->IsAlive())
-        return false;
-
-    switch (bot->getClass())
-    {
-        case CLASS_PALADIN:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_PALADIN, true);
-            if (botAI->CastSpell("hand of reckoning", target))
-                return true;
-            break;
-        }
-        case CLASS_DEATH_KNIGHT:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_DK, true);
-            if (botAI->CastSpell("dark command", target))
-                return true;
-            break;
-        }
-        case CLASS_DRUID:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_DRUID, true);
-            if (botAI->CastSpell("growl", target))
-                return true;
-            break;
-        }
-        case CLASS_WARRIOR:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_WARRIOR, true);
-            if (botAI->CastSpell("taunt", target))
-                return true;
-            break;
-        }
-        default:
-            break;
-    }
-
-    if (botAI->CastSpell("shoot", target) || botAI->CastSpell("throw", target))
-        return true;
-
-    return false;
-}
 
 bool IccBpcKelesethTankAction::Execute(Event /*event*/)
 {
@@ -72,7 +32,7 @@ bool IccBpcKelesethTankAction::Execute(Event /*event*/)
         return false;
     }
 
-    if (!botAI->IsAssistTank(bot))
+    if (!PlayerbotAI::IsAssistTank(bot))
     {
         // Non-assist-tank: pull toward center if too far
         static float const CENTER_MOVE_THRESHOLD = 30.0f;
@@ -97,14 +57,14 @@ bool IccBpcKelesethTankAction::Execute(Event /*event*/)
         }
     }
 
-    if (!botAI->IsAssistTank(bot))
+    if (!PlayerbotAI::IsAssistTank(bot))
         return false;
 
     bool const isBossVictim = boss->GetVictim() == bot;
 
     if (!isBossVictim)
     {
-        CastClassTaunt(bot, botAI, boss);
+        IccCastClassTaunt(bot, botAI, boss);
         bot->SetTarget(boss->GetGUID());
         bot->SetFacingToObject(boss);
     }
@@ -129,7 +89,7 @@ bool IccBpcKelesethTankAction::Execute(Event /*event*/)
         {
             float dist = bot->GetExactDist2d(strayNucleus);
             if (dist <= TAUNT_RANGE)
-                CastClassTaunt(bot, botAI, strayNucleus);
+                IccCastClassTaunt(bot, botAI, strayNucleus);
             else
             {
                 float dirX = strayNucleus->GetPositionX() - bot->GetPositionX();
@@ -161,9 +121,9 @@ bool IccBpcKelesethTankAction::Execute(Event /*event*/)
 
 bool IccBpcMainTankAction::Execute(Event /*event*/)
 {
-    if (!botAI->IsMainTank(bot))
+    if (!PlayerbotAI::IsMainTank(bot))
     {
-        if (botAI->IsTank(bot))
+        if (PlayerbotAI::IsTank(bot))
             MarkEmpoweredPrince();
         return false;
     }
@@ -196,7 +156,7 @@ bool IccBpcMainTankAction::Execute(Event /*event*/)
     // Taunt princes not targeting us
     if (valanar && !isVictimOfValanar)
     {
-        CastClassTaunt(bot, botAI, valanar);
+        IccCastClassTaunt(bot, botAI, valanar);
         bot->SetTarget(valanar->GetGUID());
         bot->SetFacingToObject(valanar);
         Attack(valanar);
@@ -204,39 +164,18 @@ bool IccBpcMainTankAction::Execute(Event /*event*/)
 
     if (taldaram && !isVictimOfTaldaram)
     {
-        CastClassTaunt(bot, botAI, taldaram);
+        IccCastClassTaunt(bot, botAI, taldaram);
         bot->SetTarget(taldaram->GetGUID());
         bot->SetFacingToObject(taldaram);
         Attack(taldaram);
     }
 
-    // Taunt nearby hostile adds not targeting a tank
-    GuidVector const npcs = AI_VALUE(GuidVector, "nearest hostile npcs");
-    for (auto const& npc : npcs)
-    {
-        Unit* unit = botAI->GetUnit(npc);
-        if (!unit || !unit->IsAlive())
-            continue;
-
-        if (unit->GetEntry() == NPC_PRINCE_KELESETH || unit->GetEntry() == NPC_PRINCE_VALANAR ||
-            unit->GetEntry() == NPC_PRINCE_TALDARAM || unit->GetEntry() == NPC_DARK_NUCLEUS)
-            continue;
-
-        static float const ADD_TAUNT_RANGE = 20.0f;
-        if (bot->GetDistance2d(unit) > ADD_TAUNT_RANGE)
-            continue;
-
-        Unit* victim = unit->GetVictim();
-        Player* victimPlayer = victim ? victim->ToPlayer() : nullptr;
-        if (!victimPlayer || !botAI->IsTank(victimPlayer))
-        {
-            CastClassTaunt(bot, botAI, unit);
-            break;
-        }
-    }
+    // Only the princes are tanked here (Dark Nuclei are handled by the Keleseth tank).
+    // Never taunt other hostile NPCs: threat/fixate bypasses taunt immunity and would
+    // lock a Ball of Flame / Kinetic Bomb onto the tank, breaking that mechanic.
 
     // Target marking for all tanks, called after main tank priority actions
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         MarkEmpoweredPrince();
 
     return false;
@@ -244,7 +183,7 @@ bool IccBpcMainTankAction::Execute(Event /*event*/)
 
 bool IccBpcMainTankAction::MarkEmpoweredPrince()
 {
-    static constexpr uint8 SKULL_RAID_ICON = 7;
+    static constexpr uint8 SKULL_RAID_ICON = RtiTargetValue::skullIndex;
 
     // Find empowered prince (Invocation of Blood)
     Unit* empoweredPrince = nullptr;
@@ -276,12 +215,17 @@ bool IccBpcMainTankAction::MarkEmpoweredPrince()
             ObjectGuid const currentSkullGuid = group->GetTargetIcon(SKULL_RAID_ICON);
             Unit* markedUnit = botAI->GetUnit(currentSkullGuid);
 
-            // Clear dead marks or marks that are not on empowered prince
+            // Clear dead marks or marks that are not on empowered prince. Null out
+            // markedUnit here too - otherwise the check below still sees the stale
+            // guid/unit from before the clear and skips re-marking for a full tick.
             if (markedUnit && (!markedUnit->IsAlive() || markedUnit != empoweredPrince))
+            {
                 group->SetTargetIcon(SKULL_RAID_ICON, bot->GetGUID(), ObjectGuid::Empty);
+                markedUnit = nullptr;
+            }
 
             // Mark alive empowered prince if needed
-            if (!currentSkullGuid || !markedUnit)
+            if (!markedUnit)
                 group->SetTargetIcon(SKULL_RAID_ICON, bot->GetGUID(), empoweredPrince->GetGUID());
         }
     }
@@ -316,7 +260,7 @@ bool IccBpcEmpoweredVortexAction::MaintainRangedSpacing()
     static float const RADIUS_TOLERANCE = 3.0f;
     static float const MOVE_INCREMENT = 3.0f;
 
-    bool const isRanged = botAI->IsRanged(bot) || botAI->IsHeal(bot);
+    bool const isRanged = PlayerbotAI::IsRanged(bot) || PlayerbotAI::IsHeal(bot);
     if (!isRanged)
         return false;
 
@@ -335,12 +279,12 @@ bool IccBpcEmpoweredVortexAction::MaintainRangedSpacing()
         Player* member = itr->GetSource();
         if (!member || !member->IsAlive())
             continue;
-        if (botAI->IsTank(member))
+        if (PlayerbotAI::IsTank(member))
             continue;
         PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
         if (!memberAI)
             continue;
-        if (memberAI->IsRanged(member) || memberAI->IsHeal(member))
+        if (PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member))
             rangedBots.push_back(member);
     }
 
@@ -445,13 +389,13 @@ bool IccBpcEmpoweredVortexAction::MaintainRangedSpacing()
 
 bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
 {
-    static std::map<std::pair<uint32, ObjectGuid>, uint32> spreadLockTimers;
+    auto& spreadLockTimers = IcecrownHelpers::IccState(bot->GetInstanceId()).bpcSpreadLockTimers;
     static uint32 const SPREAD_LOCK_DURATION_MS = 250;
     static float const MOVE_INCREMENT = 4.0f;
     static float const SLOT_TOLERANCE = 2.0f;
     static float const MIN_SPACING = 13.0f;
 
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         return false;
 
     Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
@@ -470,8 +414,7 @@ bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
             ++it;
     }
 
-    uint32 const instanceId = bot->GetInstanceId();
-    auto it = spreadLockTimers.find({instanceId, bot->GetGUID()});
+    auto it = spreadLockTimers.find(bot->GetGUID());
     if (it != spreadLockTimers.end())
         return false;
 
@@ -486,7 +429,7 @@ bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
         Player* member = itr->GetSource();
         if (!member || !member->IsAlive())
             continue;
-        if (botAI->IsTank(member))
+        if (PlayerbotAI::IsTank(member))
             continue;
         spreadBots.push_back(member);
     }
@@ -577,7 +520,7 @@ bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
     // Close enough to slot — lock position
     if (distToSlot <= SLOT_TOLERANCE)
     {
-        spreadLockTimers[{instanceId, bot->GetGUID()}] = now;
+        spreadLockTimers[bot->GetGUID()] = now;
         return false;
     }
 
@@ -605,7 +548,7 @@ bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
 
 bool IccBpcKineticBombAction::Execute(Event /*event*/)
 {
-    if (!botAI->IsRangedDps(bot))
+    if (!PlayerbotAI::IsRangedDps(bot))
         return false;
 
     static float const MAX_HEIGHT_DIFF = 30.0f;
@@ -682,7 +625,7 @@ Unit* IccBpcKineticBombAction::FindNearestBomb()
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* member = itr->GetSource();
-            if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && botAI->IsRangedDps(member))
+            if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && PlayerbotAI::IsRangedDps(member))
                 rangedDps.push_back(member);
         }
     }
@@ -754,7 +697,7 @@ bool IccBpcBallOfFlameAction::Execute(Event /*event*/)
     if (infernoFlameUnit && infernoDist > 2.0f && infernoDist <= 10.0f && !hasInfernoFlame &&
         bot->getClass() != CLASS_HUNTER)
     {
-        if (!botAI->IsTank(bot) && infernoFlameUnit->GetVictim() != bot)
+        if (!PlayerbotAI::IsTank(bot) && infernoFlameUnit->GetVictim() != bot)
         {
             float flameX = infernoFlameUnit->GetPositionX();
             float flameY = infernoFlameUnit->GetPositionY();

@@ -1,3 +1,9 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_MCMULTIPLIERS_H
 #define PLAYERBOTS_MCMULTIPLIERS_H
 
@@ -21,6 +27,13 @@ class GolemaggMultiplier : public Multiplier
 {
 public:
     GolemaggMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "golemagg multiplier") {}
+    float GetValue(Action* action) override;
+};
+
+class MajordomoReflectionMultiplier : public Multiplier
+{
+public:
+    MajordomoReflectionMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "majordomo reflection multiplier") {}
     float GetValue(Action* action) override;
 };
 

@@ -5,7 +5,6 @@
  */
 
 #include "PaladinPullStrategy.h"
-
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 
@@ -13,7 +12,7 @@ std::string PaladinPullStrategy::GetPullActionName() const
 {
     Unit* target = GetTarget();
     if (!target ||
-        (!botAI->HasStrategy("tank", BOT_STATE_COMBAT) && !botAI->HasStrategy("tank", BOT_STATE_NON_COMBAT)))
+        (!botAI->HasStrategy("prot", BOT_STATE_COMBAT) && !botAI->HasStrategy("prot", BOT_STATE_NON_COMBAT)))
     {
         return PullStrategy::GetPullActionName();
     }
@@ -29,7 +28,7 @@ std::string PaladinPullStrategy::GetPullActionName() const
 
 std::string PaladinPullStrategy::GetPreActionName() const
 {
-    if (botAI->HasStrategy("tank", BOT_STATE_COMBAT) || botAI->HasStrategy("tank", BOT_STATE_NON_COMBAT))
+    if (botAI->HasStrategy("prot", BOT_STATE_COMBAT) || botAI->HasStrategy("prot", BOT_STATE_NON_COMBAT))
         return "";
 
     return PullStrategy::GetPreActionName();

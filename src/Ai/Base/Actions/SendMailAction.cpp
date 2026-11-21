@@ -5,7 +5,6 @@
  */
 
 #include "SendMailAction.h"
-
 #include "ChatHelper.h"
 #include "Event.h"
 #include "ItemVisitors.h"
@@ -44,7 +43,7 @@ bool SendMailAction::Execute(Event event)
     if (!tellTo)
         tellTo = receiver;
 
-    if (!sPlayerbotAIConfig.botSendMailEnabled)
+    if (!sPlayerbotAIConfig.BotSendMailEnabled)
     {
         bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                          "send_mail_disabled", "I cannot send mail", {}),

@@ -4,23 +4,16 @@
  * or (at your option) any later version.
  */
 
-#include <functional>
-
 #include "SuggestWhatToDoAction.h"
-#include "ServerFacade.h"
-#include "Event.h"
-#include "ItemVisitors.h"
 #include "AiFactory.h"
-#include "ChatHelper.h"
-#include "Playerbots.h"
 #include "BroadcastHelper.h"
-#include "AiFactory.h"
+#include "Channel.h"
 #include "ChatHelper.h"
 #include "Event.h"
 #include "ItemVisitors.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
-#include "Channel.h"
+#include <functional>
 
 enum eTalkType
 {
@@ -256,7 +249,7 @@ bool SuggestDungeonAction::Execute(Event /*event*/)
 {
     // TODO: use PlayerbotDungeonRepository::instance()
 
-    if (!sPlayerbotAIConfig.randomBotSuggestDungeons || bot->GetGroup())
+    if (!sPlayerbotAIConfig.RandomBotSuggestDungeons || bot->GetGroup())
         return false;
 
     if (instances.empty())

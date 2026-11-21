@@ -1,5 +1,11 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "FoSActions.h"
+#include "Playerbots.h"
 
 bool MoveFromBronjahmAction::Execute(Event /*event*/)
 {
@@ -57,7 +63,7 @@ bool BronjahmGroupPositionAction::Execute(Event /*event*/)
     Unit* corruptedSoul = bot->FindNearestCreature(NPC_CORRUPTED_SOUL_FRAGMENT, 50.0f);
     bool activeSoulExists = corruptedSoul && corruptedSoul->IsAlive();
 
-    if (botAI->IsTank(bot) && botAI->HasAggro(boss))
+    if (PlayerbotAI::IsTank(bot) && botAI->HasAggro(boss))
     {
         // If any corrupted soul exists, handle positioning carefully
         if (activeSoulExists)
@@ -117,7 +123,7 @@ bool BronjahmGroupPositionAction::Execute(Event /*event*/)
 
         if (bot->GetExactDist2d(boss) > maxMovement && !activeSoulExists && (hasAura || boss->FindCurrentSpellBySpellId(SPELL_SOULSTORM_VISUAL) || boss->FindCurrentSpellBySpellId(SPELL_SOULSTORM_VISUAL2)))
         {
-            if (botAI->IsRanged(bot))
+            if (PlayerbotAI::IsRanged(bot))
             {
                 return Move(bot->GetAngle(boss), fmin(bot->GetExactDist2d(boss) - 6.5f, maxMovement));
             }
@@ -144,7 +150,7 @@ bool DevourerOfSoulsAction::Execute(Event /*event*/)
     Aura* aura = botAI->GetAura("mirrored soul", boss);
     bool hasAura = aura;
 
-    if (!botAI->IsTank(bot) && !botAI->IsHeal(bot) && hasAura)
+    if (!PlayerbotAI::IsTank(bot) && !PlayerbotAI::IsHeal(bot) && hasAura)
     {
         // Calculate the opposite direction
         float angle = bot->GetAngle(boss);

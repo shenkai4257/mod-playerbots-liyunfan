@@ -7,14 +7,6 @@
 #ifndef PLAYERBOTS_RSA_H
 #define PLAYERBOTS_RSA_H
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <list>
-#include <set>
-#include <utility>
-#include <vector>
-
 #include "AttackAction.h"
 #include "MovementActions.h"
 #include "PlayerbotAI.h"
@@ -27,6 +19,13 @@
 #include "ThreatManager.h"
 #include "Timer.h"
 #include "Vehicle.h"
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <list>
+#include <set>
+#include <utility>
+#include <vector>
 
 inline const Position RS_SAVIANA_TANK_POSITION = Position(3152.36f, 619.4369f, 78.645874f);
 inline const Position RS_ZARITHRIAN_TANK_POSITION = Position(3049.7f, 528.125f, 89.5219f);
@@ -632,7 +631,7 @@ inline bool RsHalionCombustionNotClear(Player* bot)
 
 inline bool RsHalionIsCombustionDispeller(PlayerbotAI* botAI)
 {
-    return botAI->IsHeal(botAI->GetBot()) && RsHalionCombustionNotClear(botAI->GetBot());
+    return PlayerbotAI::IsHeal(botAI->GetBot()) && RsHalionCombustionNotClear(botAI->GetBot());
 }
 
 inline constexpr float RS_HALION_CONSUMPTION_OUT_DIST = 46.0f;
@@ -1255,7 +1254,7 @@ inline bool RsHalionPortalCommit(PlayerbotAI* botAI, Player* bot)
     float speed = bot->GetSpeed(MOVE_RUN);
     if (speed < 1.0f)
         speed = 7.0f;
-    uint32 const reachMs = static_cast<uint32>((dist / speed) * 1000.0f);
+    uint32 const reachMs = static_cast<uint32>((dist / speed) * IN_MILLISECONDS);
     return reachMs + RS_HALION_PORTAL_COMMIT_MARGIN_MS <= RsHalionCutterMsUntilShoot(bot->GetInstanceId());
 }
 

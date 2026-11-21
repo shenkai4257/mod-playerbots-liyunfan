@@ -5,15 +5,13 @@
  */
 
 #include "PlayerbotCommandServer.h"
-
+#include "IoContext.h"
+#include "RandomPlayerbotMgr.h"
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/smart_ptr.hpp>
 #include <boost/thread/thread.hpp>
 #include <cstdlib>
-#include "RandomPlayerbotMgr.h"
-
-#include "IoContext.h"
 
 using boost::asio::ip::tcp;
 typedef boost::shared_ptr<tcp::socket> socket_ptr;
@@ -72,19 +70,19 @@ void server(Acore::Asio::IoContext& io_service, short port)
 
 void Run()
 {
-    if (!sPlayerbotAIConfig.commandServerPort)
+    if (!sPlayerbotAIConfig.CommandServerPort)
     {
         return;
     }
 
     std::ostringstream s;
-    s << "Starting Playerbots Command Server on port " << sPlayerbotAIConfig.commandServerPort;
+    s << "Starting Playerbots Command Server on port " << sPlayerbotAIConfig.CommandServerPort;
     LOG_INFO("playerbots", "{}", s.str().c_str());
 
     try
     {
         Acore::Asio::IoContext io_service;
-        server(io_service, sPlayerbotAIConfig.commandServerPort);
+        server(io_service, sPlayerbotAIConfig.CommandServerPort);
     }
 
     catch (std::exception& e)

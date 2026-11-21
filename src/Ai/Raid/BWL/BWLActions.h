@@ -1,9 +1,15 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_BWLACTIONS_H
 #define PLAYERBOTS_BWLACTIONS_H
 
 #include "Action.h"
-#include "MovementActions.h"
 #include "AttackAction.h"
+#include "MovementActions.h"
 
 // General
 
@@ -48,8 +54,28 @@ public:
     bool Execute(Event event) override;
 
 private:
-    bool CalculateFleeDirection(const Unit* boss, float& fleeX, float& fleeY) const;
-    bool MoveAlongFleeDirection(const Unit* boss, float fleeX, float fleeY);
+    bool CalculateFleeDirection(Unit const* boss, float& fleeX, float& fleeY) const;
+    bool MoveAlongFleeDirection(Unit const* boss, float fleeX, float fleeY);
+};
+
+// Broodlord Lashlayer
+
+class BwlBroodlordRangedMoveAwayAction : public MovementAction
+{
+public:
+    BwlBroodlordRangedMoveAwayAction(PlayerbotAI* botAI) : MovementAction(botAI, "bwl broodlord ranged move away") {}
+    bool Execute(Event event) override;
+};
+
+// Firemaw / Ebonroc / Flamegor
+
+class BwlBlackDrakeAvoidBreathAction : public BossRearFlankAction
+{
+public:
+    BwlBlackDrakeAvoidBreathAction(PlayerbotAI* botAI, std::string const& bossName,
+                                   float minAngle = ANGLE_45_DEG)
+        : BossRearFlankAction(botAI, bossName, 0.0f, minAngle, M_PI) {}
+    bool isUseful() override;
 };
 
 // Chromaggus
@@ -61,10 +87,12 @@ public:
     bool Execute(Event event) override;
 };
 
-class BwlNefarianFearWardAction : public Action
+// Nefarian
+
+class BwlNefarianKillCorruptedTotemAction : public AttackAction
 {
 public:
-    BwlNefarianFearWardAction(PlayerbotAI* botAI) : Action(botAI, "bwl nefarian fear ward") {}
+    BwlNefarianKillCorruptedTotemAction(PlayerbotAI* botAI) : AttackAction(botAI, "bwl nefarian kill corrupted totem") {}
     bool Execute(Event event) override;
 };
 

@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_FERALDRUIDSTRATEGY_H
 #define PLAYERBOTS_FERALDRUIDSTRATEGY_H
 
+#include "Action.h"
 #include "GenericDruidStrategy.h"
 
 constexpr uint32 SPELL_CAT_FORM  = 768;
@@ -84,7 +85,7 @@ protected:
 
 public:
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
-    uint32 GetType() const override { return STRATEGY_TYPE_COMBAT | STRATEGY_TYPE_MELEE; }
+    uint32 GetType() const override { return STRATEGY_TYPE_MELEE; }
 };
 
 // Optional strategy — enabled by default for cat and bear.

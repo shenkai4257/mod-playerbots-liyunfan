@@ -5,7 +5,6 @@
  */
 
 #include "MaintenanceStrategy.h"
-
 #include "Playerbots.h"
 
 std::vector<NextAction> MaintenanceStrategy::getDefaultActions() { return {}; }
@@ -64,7 +63,7 @@ void MaintenanceStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         new TriggerNode(
             "random",
             {
-                NextAction("use random quest item", 0.9f)
+                NextAction("use start quest item", 0.9f)
             }
         )
     );

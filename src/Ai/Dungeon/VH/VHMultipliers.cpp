@@ -1,15 +1,19 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "VHMultipliers.h"
-#include "VHActions.h"
-#include "GenericSpellActions.h"
 #include "ChooseTargetActions.h"
-#include "MovementActions.h"
+#include "Playerbots.h"
+#include "VHActions.h"
 #include "VHTriggers.h"
-#include "Action.h"
 
 float ErekemMultiplier::GetValue(Action* action)
 {
     Unit* boss = AI_VALUE2(Unit*, "find target", "erekem");
-    if (!boss || !botAI->IsDps(bot)) { return 1.0f; }
+    if (!boss || !PlayerbotAI::IsDps(bot)) { return 1.0f; }
 
     if (dynamic_cast<DpsAssistAction*>(action))
     {

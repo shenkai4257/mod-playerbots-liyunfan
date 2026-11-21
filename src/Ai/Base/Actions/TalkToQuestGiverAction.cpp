@@ -5,7 +5,7 @@
  */
 
 #include "TalkToQuestGiverAction.h"
-
+#include "BroadcastHelper.h"
 #include "ChatHelper.h"
 #include "Event.h"
 #include "ItemUsageValue.h"
@@ -14,7 +14,6 @@
 #include "QuestDef.h"
 #include "StatsWeightCalculator.h"
 #include "WorldPacket.h"
-#include "BroadcastHelper.h"
 
 bool TalkToQuestGiverAction::ProcessQuest(Quest const* quest, Object* questGiver)
 {
@@ -25,10 +24,10 @@ bool TalkToQuestGiverAction::ProcessQuest(Quest const* quest, Object* questGiver
     QuestStatus status = bot->GetQuestStatus(quest->GetQuestId());
     Player* master = GetMaster();
 
-    if (sPlayerbotAIConfig.syncQuestForPlayer && master)
+    if (sPlayerbotAIConfig.SyncQuestForPlayer && master)
     {
         PlayerbotAI* masterBotAI = GET_PLAYERBOT_AI(master);
-        if (!masterBotAI || masterBotAI->IsRealPlayer())
+        if (!masterBotAI || IsSelfBot(master))
         {
             QuestStatus masterStatus = master->GetQuestStatus(quest->GetQuestId());
             if (masterStatus == QUEST_STATUS_INCOMPLETE || masterStatus == QUEST_STATUS_FAILED)
@@ -36,7 +35,7 @@ bool TalkToQuestGiverAction::ProcessQuest(Quest const* quest, Object* questGiver
         }
     }
 
-    if (sPlayerbotAIConfig.syncQuestWithPlayer)
+    if (sPlayerbotAIConfig.SyncQuestWithPlayer)
     {
         if (master && master->GetQuestStatus(quest->GetQuestId()) == QUEST_STATUS_COMPLETE &&
             (status == QUEST_STATUS_INCOMPLETE || status == QUEST_STATUS_FAILED))
@@ -90,7 +89,7 @@ bool TalkToQuestGiverAction::TurnInQuest(Quest const* quest, Object* questGiver,
 
     if (botAI->HasStrategy("debug quest", BotState::BOT_STATE_NON_COMBAT) || botAI->HasStrategy("debug rpg", BotState::BOT_STATE_COMBAT))
     {
-        const Quest* pQuest = sObjectMgr->GetQuestTemplate(questID);
+        Quest const* pQuest = sObjectMgr->GetQuestTemplate(questID);
         const std::string text_quest = ChatHelper::FormatQuest(pQuest);
         LOG_INFO("playerbots", "{} => Quest [ {} ] completed", bot->GetName(), pQuest->GetTitle());
         bot->Say("Quest [ " + text_quest + " ] completed", LANG_UNIVERSAL);
@@ -172,7 +171,7 @@ void TalkToQuestGiverAction::RewardMultipleItem(Quest const* quest, Object* ques
     std::set<uint32> bestIds;
 
     std::ostringstream outid;
-    if (!botAI->IsAlt() || sPlayerbotAIConfig.autoPickReward == "yes")
+    if (!botAI->IsAltBot() || sPlayerbotAIConfig.AutoPickReward == "yes")
     {
         bestIds = BestRewards(quest);
         if (!bestIds.empty())
@@ -182,7 +181,12 @@ void TalkToQuestGiverAction::RewardMultipleItem(Quest const* quest, Object* ques
             float bestScore = 0;
             for (uint32 id : bestIds)
             {
-                float score = calc.CalculateItem(quest->RewardChoiceItemId[id]);
+                uint32 const itemId = quest->RewardChoiceItemId[id];
+                ItemTemplate const* rewardProto = sObjectMgr->GetItemTemplate(itemId);
+                uint8 rewardSlot = NULL_SLOT;
+                if (rewardProto)
+                    rewardSlot = botAI->FindEquipSlot(rewardProto, NULL_SLOT, true);
+                float score = calc.CalculateItem(itemId, 0, rewardSlot);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -199,7 +203,7 @@ void TalkToQuestGiverAction::RewardMultipleItem(Quest const* quest, Object* ques
             AskToSelectReward(quest, out, true);
         }
     }
-    else if (sPlayerbotAIConfig.autoPickReward == "no")
+    else if (sPlayerbotAIConfig.AutoPickReward == "no")
     {
         // Old functionality, list rewards.
         AskToSelectReward(quest, out, false);
@@ -259,10 +263,10 @@ bool TurnInQueryQuestAction::Execute(Event event)
     QuestStatus status = bot->GetQuestStatus(quest->GetQuestId());
     Player* master = GetMaster();
 
-    if (sPlayerbotAIConfig.syncQuestForPlayer && master)
+    if (sPlayerbotAIConfig.SyncQuestForPlayer && master)
     {
         PlayerbotAI* masterBotAI = GET_PLAYERBOT_AI(master);
-        if (!masterBotAI || masterBotAI->IsRealPlayer())
+        if (!masterBotAI || IsSelfBot(master))
         {
             QuestStatus masterStatus = master->GetQuestStatus(quest->GetQuestId());
             if (masterStatus == QUEST_STATUS_INCOMPLETE || masterStatus == QUEST_STATUS_FAILED)
@@ -270,7 +274,7 @@ bool TurnInQueryQuestAction::Execute(Event event)
         }
     }
 
-    if (sPlayerbotAIConfig.syncQuestWithPlayer)
+    if (sPlayerbotAIConfig.SyncQuestWithPlayer)
     {
         if (status == QUEST_STATUS_INCOMPLETE || status == QUEST_STATUS_FAILED)
         {

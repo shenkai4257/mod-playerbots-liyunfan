@@ -61,12 +61,11 @@ private:
 
         creators["entry quest relation"] = &SharedValueContext::entry_quest_relation;
         creators["quest guidp map"] = &SharedValueContext::quest_guidp_map;
-        creators["quest givers"] = &SharedValueContext::quest_givers;
     }
     ~SharedValueContext() = default;
 
-    SharedValueContext(const SharedValueContext&) = delete;
-    SharedValueContext& operator=(const SharedValueContext&) = delete;
+    SharedValueContext(SharedValueContext const&) = delete;
+    SharedValueContext& operator=(SharedValueContext const&) = delete;
 
     SharedValueContext(SharedValueContext&&) = delete;
     SharedValueContext& operator=(SharedValueContext&&) = delete;
@@ -78,7 +77,6 @@ private:
 
     static UntypedValue* entry_quest_relation(PlayerbotAI* botAI) { return new EntryQuestRelationMapValue(botAI); }
     static UntypedValue* quest_guidp_map(PlayerbotAI* botAI) { return new QuestGuidpMapValue(botAI); }
-    static UntypedValue* quest_givers(PlayerbotAI* botAI) { return new QuestGiversValue(botAI); }
 
 };
 

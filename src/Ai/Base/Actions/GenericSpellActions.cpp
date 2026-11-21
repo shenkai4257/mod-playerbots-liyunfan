@@ -5,23 +5,22 @@
  */
 
 #include "GenericSpellActions.h"
-
-#include <ctime>
-#include <unordered_set>
-
+#include "Chat.h"
 #include "Event.h"
+#include "GenericBuffUtils.h"
+#include "Group.h"
 #include "ItemTemplate.h"
 #include "ObjectDefines.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "WorldPacket.h"
-#include "Group.h"
-#include "Chat.h"
-#include "GenericBuffUtils.h"
-#include "PlayerbotAI.h"
+#include <ctime>
+#include <unordered_set>
 
+using ai::buff::BuffBelowRefreshTarget;
 using ai::buff::MakeAuraQualifierForBuff;
 using ai::spell::HasSpellOrCategoryCooldown;
 
@@ -181,6 +180,16 @@ bool CastSpellAction::Execute(Event /*event*/)
     return botAI->CastSpell(spell, GetTarget());
 }
 
+bool CastKnockbackSpellAction::IsBlocked(Player* bot, uint32 noKnockbackGlyph)
+{
+    return bot->GetMap()->IsDungeon() && !bot->HasAura(noKnockbackGlyph);
+}
+
+bool CastKnockbackSpellAction::isUseful()
+{
+    return !IsBlocked(bot, _noKnockbackGlyph) && CastSpellAction::isUseful();
+}
+
 bool CastSpellAction::isUseful()
 {
     if (botAI->IsInVehicle() && !botAI->IsInVehicle(false, false, true))
@@ -200,7 +209,7 @@ bool CastSpellAction::isUseful()
         return false;
 
     // float combatReach = bot->GetCombatReach() + target->GetCombatReach();
-    // if (!botAI->IsRanged(bot))
+    // if (!PlayerbotAI::IsRanged(bot))
     //     combatReach += 4.0f / 3.0f;
 
     return AI_VALUE2(bool, "spell cast useful", spell);
@@ -211,10 +220,9 @@ bool CastSpellAction::isPossible()
 {
     if (botAI->IsInVehicle() && !botAI->IsInVehicle(false, false, true))
     {
-        if (!sPlayerbotAIConfig.logInGroupOnly || (bot->GetGroup() && botAI->HasRealPlayerMaster()))
-        {
+        if (!sPlayerbotAIConfig.LogInGroupOnly || (bot->GetGroup() && botAI->HasGameClientMaster()))
             LOG_DEBUG("playerbots", "Can cast spell failed. Vehicle. - bot name: {}", bot->GetName());
-        }
+
         return false;
     }
 
@@ -223,10 +231,9 @@ bool CastSpellAction::isPossible()
 
     if (spell == "mount" && bot->IsInCombat())
     {
-        if (!sPlayerbotAIConfig.logInGroupOnly || (bot->GetGroup() && botAI->HasRealPlayerMaster()))
-        {
+        if (!sPlayerbotAIConfig.LogInGroupOnly || (bot->GetGroup() && botAI->HasGameClientMaster()))
             LOG_DEBUG("playerbots", "Can cast spell failed. Mount. - bot name: {}", bot->GetName());
-        }
+
         bot->Dismount();
         return false;
     }
@@ -272,10 +279,7 @@ bool CastAuraSpellAction::isUseful()
         return false;
 
     Aura* aura = botAI->GetAura(spell, GetTarget(), isOwner, checkDuration);
-    if (!aura || (beforeDuration && uint32(aura->GetDuration()) < beforeDuration))
-        return true;
-
-    return false;
+    return BuffBelowRefreshTarget(botAI, aura, beforeDuration);
 }
 
 bool CastBuffSpellAction::isUseful()
@@ -285,11 +289,13 @@ bool CastBuffSpellAction::isUseful()
         return false;
 
     Aura* aura = botAI->GetAura(spell, target, isOwner, checkDuration);
-    return !aura || (beforeDuration && uint32(aura->GetDuration()) < beforeDuration);
+    return BuffBelowRefreshTarget(botAI, aura, beforeDuration);
 }
 
 bool CastBuffSpellAction::Execute(Event /*event*/)
 {
+    botAI->forceRebuff.NoteBuffWork();
+
     return botAI->CastSpell(spell, GetTarget());
 }
 
@@ -302,19 +308,19 @@ bool GroupBuffSpellAction::isUseful()
     if (ai::buff::IsGroupVariantEnabled(bot, spell))
     {
         std::string const groupVariant = ai::buff::GroupVariantFor(spell);
-        if (!groupVariant.empty() && botAI->HasAura(groupVariant, target, false, isOwner, -1, checkDuration))
+        if (!groupVariant.empty() && !BuffBelowRefreshTarget(
+                botAI, botAI->GetAura(groupVariant, target, isOwner, checkDuration), beforeDuration))
             return false;
     }
 
     Aura* aura = botAI->GetAura(spell, target, isOwner, checkDuration);
-    if (!aura || (beforeDuration && uint32(aura->GetDuration()) < beforeDuration))
-        return true;
-
-    return false;
+    return BuffBelowRefreshTarget(botAI, aura, beforeDuration);
 }
 
 bool GroupBuffSpellAction::Execute(Event /*event*/)
 {
+    botAI->forceRebuff.NoteBuffWork();
+
     std::string missingReagentGroupName;
     std::string const castName = ai::buff::UpgradeToGroupIfAppropriate(
         bot, botAI, spell, &missingReagentGroupName);
@@ -577,7 +583,7 @@ bool UseTrinketAction::UseTrinket(Item* item)
                 }
             }
 
-            const SpellInfo* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
             if (!spellInfo || !spellInfo->IsPositive())
                 return false;
 
@@ -587,7 +593,7 @@ bool UseTrinketAction::UseTrinket(Item* item)
             bool defensiveTankEffect = false;
             for (int i = 0; i < MAX_SPELL_EFFECTS; i++)
             {
-                const SpellEffectInfo& effectInfo = spellInfo->Effects[i];
+                SpellEffectInfo const& effectInfo = spellInfo->Effects[i];
                 if (effectInfo.Effect == SPELL_EFFECT_APPLY_AURA)
                     applyAura = true;
 
@@ -605,8 +611,8 @@ bool UseTrinketAction::UseTrinket(Item* item)
                     return false;
 
                 uint8 const manaPct = AI_VALUE2(uint8, "mana", "self target");
-                if ((restoresMana && manaPct >= sPlayerbotAIConfig.mediumMana) ||
-                    manaPct >= sPlayerbotAIConfig.highMana)
+                if ((restoresMana && manaPct >= sPlayerbotAIConfig.MediumMana) ||
+                    manaPct >= sPlayerbotAIConfig.HighMana)
                 {
                     return false;
                 }
@@ -615,7 +621,7 @@ bool UseTrinketAction::UseTrinket(Item* item)
             if (defensiveTankEffect)
             {
                 uint8 const healthPct = AI_VALUE2(uint8, "health", "self target");
-                if (healthPct > sPlayerbotAIConfig.lowHealth)
+                if (healthPct > sPlayerbotAIConfig.LowHealth)
                     return false;
             }
 
@@ -643,6 +649,8 @@ bool UseTrinketAction::UseTrinket(Item* item)
     targetFlag = TARGET_FLAG_NONE;
     packet << targetFlag << bot->GetPackGUID();
 
+    // HandleUseItemOpcode can destroy the trinket on its last charge.
+    uint32 const itemId = item->GetEntry();
     bot->GetSession()->HandleUseItemOpcode(packet);
 
     uint32 const now = getMSTime();
@@ -651,7 +659,7 @@ bool UseTrinketAction::UseTrinket(Item* item)
     {
         if (itemSpellCooldown > 0)
         {
-            uint64 const itemCooldownKey = (static_cast<uint64>(item->GetEntry()) << 32) | spellId;
+            uint64 const itemCooldownKey = (static_cast<uint64>(itemId) << 32) | spellId;
             trinketItemCooldownExpiries[itemCooldownKey] = now + static_cast<uint32>(itemSpellCooldown);
         }
 

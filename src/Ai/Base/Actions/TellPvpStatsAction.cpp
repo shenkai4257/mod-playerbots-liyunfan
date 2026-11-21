@@ -5,18 +5,16 @@
  */
 
 #include "TellPvpStatsAction.h"
-
-#include <map>
-
 #include "ArenaTeam.h"
 #include "ArenaTeamMgr.h"
 #include "Event.h"
+#include "Language.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "SharedDefines.h"
-#include "Language.h"
+#include <map>
 
 namespace
 {
@@ -64,7 +62,7 @@ bool TellPvpStatsAction::Execute(Event event)
 
     // Arena Teams by slot
     bool anyTeam = false;
-    for (uint8 slot = 0; slot < MAX_ARENA_SLOT; ++slot)
+    for (uint8 slot = ARENA_SLOT_2v2; slot <= ARENA_SLOT_5v5; ++slot)
     {
         uint32 const teamId = bot->GetArenaTeamId(slot);
         if (!teamId)

@@ -1,7 +1,13 @@
-#include "Playerbots.h"
-#include "ANActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
-bool AttackWebWrapAction::isUseful() { return !botAI->IsHeal(bot); }
+#include "ANActions.h"
+#include "Playerbots.h"
+
+bool AttackWebWrapAction::isUseful() { return !PlayerbotAI::IsHeal(bot); }
 bool AttackWebWrapAction::Execute(Event /*event*/)
 {
     Unit* webWrap = nullptr;
@@ -27,7 +33,7 @@ bool AttackWebWrapAction::Execute(Event /*event*/)
     return Attack(webWrap);
 }
 
-bool WatchersTargetAction::isUseful() { return !botAI->IsHeal(bot); }
+bool WatchersTargetAction::isUseful() { return !PlayerbotAI::IsHeal(bot); }
 bool WatchersTargetAction::Execute(Event /*event*/)
 {
     // Always prioritise web wraps

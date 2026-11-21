@@ -1,5 +1,12 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "VHActions.h"
+#include "Playerbots.h"
+#include "VHTriggers.h"
 
 bool AttackErekemAction::Execute(Event /*event*/)
 {
@@ -22,7 +29,7 @@ bool AttackIchorGlobuleAction::Execute(Event /*event*/)
     Unit* currentTarget = AI_VALUE(Unit*, "current target");
 
     // Tank prioritise boss if it's up
-    if (botAI->IsTank(bot) && !boss->HasAura(SPELL_DRAINED))
+    if (PlayerbotAI::IsTank(bot) && !boss->HasAura(SPELL_DRAINED))
     {
         if (AI_VALUE(Unit*, "current target") != boss)
         {
@@ -93,9 +100,4 @@ bool AttackVoidSentryAction::Execute(Event /*event*/)
     }
 
     return false;
-}
-
-bool StopAttackAction::Execute(Event /*event*/)
-{
-    return bot->AttackStop();
 }

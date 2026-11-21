@@ -1,6 +1,11 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "OSActions.h"
 #include "OSTriggers.h"
-
 #include "Playerbots.h"
 
 bool SartharionTankPositionAction::Execute(Event /*event*/)
@@ -39,7 +44,7 @@ bool SartharionTankPositionAction::Execute(Event /*event*/)
     // Adjustable, this is the acceptable distance to stack point that will be accepted as "safe"
     float looseDistance = 12.0f;
 
-    if (botAI->IsMainTank(bot))
+    if (PlayerbotAI::IsMainTank(bot))
     {
         if (bot->GetExactDist2d(SARTHARION_MAINTANK_POSITION.first, SARTHARION_MAINTANK_POSITION.second) > looseDistance)
         {
@@ -118,7 +123,7 @@ bool AvoidFlameTsunamiAction::Execute(Event /*event*/)
             // I always saw these accurate to around 6 decimal places, but if there are issues,
             // can switch this to abs comparison of floats which would technically be more robust.
             int posY = (int) unit->GetPositionY();
-            if (posY == 505 || posY == 555)     // RIGHT WAVE
+            if (posY == 500 || posY == 564)     // RIGHT WAVE
             {
                 bool wavePassed = currentPos.GetPositionX() > unit->GetPositionX();
                 if (wavePassed)
@@ -134,7 +139,7 @@ bool AvoidFlameTsunamiAction::Execute(Event /*event*/)
                 if (wavePassed)
                     return false;
 
-                if (botAI->IsMelee(bot))
+                if (PlayerbotAI::IsMelee(bot))
                 {
                     if (bot->GetExactDist2d(currentPos.GetPositionX(), TSUNAMI_LEFT_SAFE_MELEE) > looseDistance)
                         return MoveTo(OS_MAP_ID, currentPos.GetPositionX(), TSUNAMI_LEFT_SAFE_MELEE, currentPos.GetPositionZ(),

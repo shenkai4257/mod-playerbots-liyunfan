@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_TOCTRIGGERS_H
 #define PLAYERBOTS_TOCTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum TocC_IDs
 {
@@ -12,6 +18,8 @@ enum TocC_IDs
 
     // Horse
     SPELL_DEFEND                    = 66482,
+    SPELL_BOSS_DEFEND               = 62719,
+    SPELL_MINIONS_DEFEND            = 64100,
 
     //Eadric
     SPELL_RADIANCE                  = 66935,
@@ -73,6 +81,11 @@ enum TocC_IDs
 
 };
 
+const std::vector<uint32> availableChampions = {
+    NPC_MOKRA,   NPC_ERESSEA, NPC_RUNOK,   NPC_ZULTORE, NPC_VISCERI,
+    NPC_AMBROSE, NPC_COLOSOS, NPC_JAELYNE, NPC_LANA,    NPC_JACOB,
+};
+
 const std::vector<uint32> availableTargets = {
     NPC_MOKRA,            NPC_ERESSEA,           NPC_RUNOK,                NPC_ZULTORE,          NPC_VISCERI,
     NPC_AMBROSE,          NPC_COLOSOS,           NPC_JAELYNE,              NPC_LANA,             NPC_JACOB,
@@ -83,14 +96,14 @@ const std::vector<uint32> availableTargets = {
 class ToCLanceTrigger : public Trigger
 {
 public:
-    ToCLanceTrigger(PlayerbotAI* ai) : Trigger(ai, "toc lance") {}
+    ToCLanceTrigger(PlayerbotAI* botAI) : Trigger(botAI, "toc lance", 500) {}
     bool IsActive() override;
 };
 
 class ToCUELanceTrigger : public Trigger
 {
 public:
-    ToCUELanceTrigger(PlayerbotAI* ai) : Trigger(ai, "toc ue lance") {}
+    ToCUELanceTrigger(PlayerbotAI* botAI) : Trigger(botAI, "toc ue lance", 500) {}
     bool IsActive() override;
 };
 
@@ -104,7 +117,7 @@ public:
 class ToCMountNearTrigger : public Trigger
 {
 public:
-    ToCMountNearTrigger(PlayerbotAI* botAI) : Trigger(botAI, "toc mount near") {}
+    ToCMountNearTrigger(PlayerbotAI* botAI) : Trigger(botAI, "toc mount near", 500) {}
     bool IsActive() override;
 };
 

@@ -5,7 +5,6 @@
  */
 
 #include "RpgTriggers.h"
-
 #include "BudgetValues.h"
 #include "GuildCreateActions.h"
 #include "Playerbots.h"
@@ -181,7 +180,7 @@ bool RpgTrainTrigger::IsActive()
 
 bool RpgHealTrigger::IsActive()
 {
-    if (!botAI->HasStrategy("heal", BOT_STATE_COMBAT))
+    if (!PlayerbotAI::IsHeal(bot))
         return false;
 
     GuidPosition guidP(getGuidP());
@@ -356,7 +355,7 @@ bool RpgDuelTrigger::IsActive()
     if (bot->GetLevel() < 3)
         return false;
 
-    if (botAI->HasRealPlayerMaster())
+    if (botAI->HasGameClientMaster())
     {
         // do not auto duel if master is not afk
         if (botAI->GetMaster() && !botAI->GetMaster()->isAFK())

@@ -9,8 +9,8 @@
 
 #include "CureTriggers.h"
 #include "GenericTriggers.h"
-#include "Trigger.h"
 #include "PlayerbotAI.h"
+#include "Trigger.h"
 #include <set>
 
 class PlayerbotAI;
@@ -186,22 +186,6 @@ class AutoShotTrigger : public Trigger
 {
 public:
     AutoShotTrigger(PlayerbotAI* botAI) : Trigger(botAI, "auto shot") {}
-};
-
-class SwitchToRangedTrigger : public Trigger
-{
-public:
-    SwitchToRangedTrigger(PlayerbotAI* botAI) : Trigger(botAI, "switch to ranged") {}
-
-    bool IsActive() override;
-};
-
-class SwitchToMeleeTrigger : public Trigger
-{
-public:
-    SwitchToMeleeTrigger(PlayerbotAI* botAI) : Trigger(botAI, "switch to melee") {}
-
-    bool IsActive() override;
 };
 
 class MisdirectionOnMainTankTrigger : public BuffOnMainTankTrigger

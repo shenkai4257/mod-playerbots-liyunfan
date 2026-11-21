@@ -1,16 +1,21 @@
-#include "NaxxActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
-#include "PlayerbotAIConfig.h"
-#include "Playerbots.h"
+#include "NaxxActions.h"
 #include "NaxxBossHelper.h"
 #include "NaxxSpellIds.h"
+#include "PlayerbotAIConfig.h"
+#include "Playerbots.h"
 
 bool SapphironGroundPositionAction::Execute(Event /*event*/)
 {
     if (!helper.UpdateBossAI())
         return false;
 
-    if (botAI->IsMainTank(bot))
+    if (PlayerbotAI::IsMainTank(bot))
     {
         if (AI_VALUE2(bool, "has aggro", "current target"))
             return MoveTo(NAXX_MAP_ID, helper.mainTankPos.first, helper.mainTankPos.second, helper.GENERIC_HEIGHT, false, false, false,
@@ -25,9 +30,9 @@ bool SapphironGroundPositionAction::Execute(Event /*event*/)
         float offset_angle = M_PI * 0.02 * index;
         float angle = start_angle + offset_angle;
         float distance;
-        if (botAI->IsRanged(bot))
+        if (PlayerbotAI::IsRanged(bot))
             distance = 35.0f;
-        else if (botAI->IsHeal(bot))
+        else if (PlayerbotAI::IsHeal(bot))
             distance = 30.0f;
         else
             distance = 5.0f;

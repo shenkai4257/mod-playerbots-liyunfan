@@ -1,59 +1,19 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "EquipAction.h"
-#include "GenericActions.h"
 #include "GenericSpellActions.h"
+#include "ICCActions.h"
+#include "ICCTriggers.h"
 #include "Multiplier.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
-#include "ICCActions.h"
-#include "ICCTriggers.h"
 #include "RtiValue.h"
 #include "Vehicle.h"
-
-static bool CastClassTaunt(Player* bot, PlayerbotAI* botAI, Unit* target)
-{
-    if (!target || !target->IsAlive())
-        return false;
-
-    switch (bot->getClass())
-    {
-        case CLASS_PALADIN:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_PALADIN, true);
-            if (botAI->CastSpell("hand of reckoning", target))
-                return true;
-            break;
-        }
-        case CLASS_DEATH_KNIGHT:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_DK, true);
-            if (botAI->CastSpell("dark command", target))
-                return true;
-            break;
-        }
-        case CLASS_DRUID:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_DRUID, true);
-            if (botAI->CastSpell("growl", target))
-                return true;
-            break;
-        }
-        case CLASS_WARRIOR:
-        {
-            bot->RemoveSpellCooldown(SPELL_TAUNT_WARRIOR, true);
-            if (botAI->CastSpell("taunt", target))
-                return true;
-            break;
-        }
-        default:
-            break;
-    }
-
-    if (botAI->CastSpell("shoot", target) || botAI->CastSpell("throw", target))
-        return true;
-
-    return false;
-}
 
 bool IccCannonFireAction::Execute(Event /*event*/)
 {
@@ -254,7 +214,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
     float const maxWaitingDistance = (side == GunshipSide::ALLY) ? 30.0f : 25.0f;
     static constexpr float MAX_ATTACK_DISTANCE = 20.0f;
     static constexpr float HOLD_RADIUS = 20.0f;
-    static constexpr uint8 SKULL_ICON_INDEX = 7;
+    static constexpr uint8 SKULL_ICON_INDEX = RtiTargetValue::skullIndex;
 
     uint32 const mageEntry = (side == GunshipSide::ALLY) ? NPC_KOR_KRON_BATTLE_MAGE : NPC_SKYBREAKER_SORCERER;
     Position const& waitPos = (side == GunshipSide::ALLY) ? ICC_GUNSHIP_ROCKET_JUMP_ALLY2 : ICC_GUNSHIP_ROCKET_JUMP_HORDE_FRIENDLY_POINT;
@@ -297,7 +257,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
     bool const mageAlive = boss && boss->IsAlive() && boss->HasUnitState(UNIT_STATE_CASTING);
 
     // Assist tank stays on friendly ship to collect and tank adds
-    if (botAI->IsAssistTank(bot))
+    if (PlayerbotAI::IsAssistTank(bot))
     {
         GuidVector const npcs = AI_VALUE(GuidVector, "nearest hostile npcs");
 
@@ -315,7 +275,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
                 continue;
 
             Unit* victim = unit->GetVictim();
-            bool alreadyTanked = victim && victim->IsPlayer() && botAI->IsTank(victim->ToPlayer());
+            bool alreadyTanked = victim && victim->IsPlayer() && PlayerbotAI::IsTank(victim->ToPlayer());
             if (alreadyTanked)
                 continue;
 
@@ -329,7 +289,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
 
         if (targetAdd)
         {
-            CastClassTaunt(bot, botAI, targetAdd);
+            IccCastClassTaunt(bot, botAI, targetAdd);
             bot->SetTarget(targetAdd->GetGUID());
             bot->SetFacingToObject(targetAdd);
             Attack(targetAdd);
@@ -365,7 +325,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         return false;
     }
 
-    bool const isMainTank = botAI->IsMainTank(bot);
+    bool const isMainTank = PlayerbotAI::IsMainTank(bot);
     bool const isHorde = (side == GunshipSide::HORDE);
     Position const& middlePoint = ICC_GUNSHIP_ROCKET_JUMP_HORDE_MIDDLE_POINT;
     static constexpr float JUMP_GATE = 30.0f;
@@ -396,7 +356,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
                 Player* member = ref->GetSource();
                 if (!member || !member->IsAlive() || member == bot)
                     continue;
-                if (botAI->IsMainTank(member) || botAI->IsAssistTank(member))
+                if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
                     continue;
                 if (member->GetExactDist2d(attackPos) <= 20.0f)
                 {
@@ -414,7 +374,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
             if (bot->GetVictim())
             {
                 bot->AttackStop();
-                bot->InterruptNonMeleeSpells(true);
+                bot->CastStop();
                 bot->SetTarget(ObjectGuid::Empty);
             }
             if (botOnEnemyShip)
@@ -543,7 +503,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         // On enemy ship. If not captain's victim, force aggro.
         if (captain->GetVictim() != bot)
         {
-            CastClassTaunt(bot, botAI, captain);
+            IccCastClassTaunt(bot, botAI, captain);
             bot->SetTarget(captain->GetGUID());
             bot->SetFacingToObject(captain);
             Attack(captain);
@@ -720,7 +680,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         }
 
         // Melee DPS on friendly ship: assist the assist tank on adds it's tanking
-        if (botAI->IsMelee(bot) && !botAI->IsTank(bot))
+        if (PlayerbotAI::IsMelee(bot) && !PlayerbotAI::IsTank(bot))
         {
             if (Group* group = bot->GetGroup())
             {
@@ -729,7 +689,7 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
                     Player* member = ref->GetSource();
                     if (!member || !member->IsAlive())
                         continue;
-                    if (!botAI->IsAssistTank(member))
+                    if (!PlayerbotAI::IsAssistTank(member))
                         continue;
                     Unit* assistTarget = member->GetVictim();
                     if (!assistTarget || !assistTarget->IsAlive())
@@ -747,15 +707,14 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         // Ranged DPS star-mark axethrower/rifleman for weapon focus fire.
         // Handoff uses the previous star's spot as anchor so the marker
         // doesn't jump to whichever add is closest to the picking bot.
-        if (botAI->IsRangedDps(bot))
+        if (PlayerbotAI::IsRangedDps(bot))
         {
-            static constexpr uint8 STAR_ICON_INDEX = 0;
+            static constexpr uint8 STAR_ICON_INDEX = RtiTargetValue::starIndex;
             static constexpr float ADD_SEARCH_RANGE = 200.0f;
             uint32 const addEntry = (side == GunshipSide::ALLY)
                 ? NPC_KOR_KRON_AXETHROWER : NPC_SKYBREAKER_RIFLEMAN;
 
-            static std::map<uint32, Position> s_lastStarPos;
-            uint32 const instId = bot->GetInstanceId();
+            Position& lastStarPos = IcecrownHelpers::IccState(bot->GetInstanceId()).gsbLastStarPos;
 
             if (Group* group = bot->GetGroup())
             {
@@ -765,19 +724,15 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
 
                 if (validStar)
                 {
-                    s_lastStarPos[instId] = Position(starTarget->GetPositionX(),
-                                                     starTarget->GetPositionY(),
-                                                     starTarget->GetPositionZ());
+                    lastStarPos = Position(starTarget->GetPositionX(),
+                                           starTarget->GetPositionY(),
+                                           starTarget->GetPositionZ());
                 }
                 else
                 {
-                    Position refPos;
-                    auto const it = s_lastStarPos.find(instId);
-                    if (it != s_lastStarPos.end())
-                        refPos = it->second;
-                    else
-                        refPos = Position(bot->GetPositionX(), bot->GetPositionY(),
-                                          bot->GetPositionZ());
+                    Position const refPos = (lastStarPos.GetPositionX() != 0.0f || lastStarPos.GetPositionY() != 0.0f)
+                        ? lastStarPos
+                        : Position(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
 
                     std::list<Creature*> adds;
                     bot->GetCreatureListWithEntryInGrid(adds, addEntry, ADD_SEARCH_RANGE);
@@ -799,9 +754,9 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
                     if (nextAdd)
                     {
                         group->SetTargetIcon(STAR_ICON_INDEX, bot->GetGUID(), nextAdd->GetGUID());
-                        s_lastStarPos[instId] = Position(nextAdd->GetPositionX(),
-                                                         nextAdd->GetPositionY(),
-                                                         nextAdd->GetPositionZ());
+                        lastStarPos = Position(nextAdd->GetPositionX(),
+                                               nextAdd->GetPositionY(),
+                                               nextAdd->GetPositionZ());
                         starTarget = nextAdd;
                     }
                     else
@@ -836,7 +791,7 @@ bool IccGunshipRocketJumpAction::IsMainTankOnEnemyShip(GunshipSide side) const
         Player* member = ref->GetSource();
         if (!member || !member->IsAlive())
             continue;
-        if (!botAI->IsMainTank(member))
+        if (!PlayerbotAI::IsMainTank(member))
             continue;
         Unit* captain = member->FindNearestCreature(captainEntry, 15.0f);
         return captain != nullptr;
@@ -858,7 +813,7 @@ bool IccGunshipRocketJumpAction::AnyNonTankAwayFromFriendly(GunshipSide side) co
         Player* member = ref->GetSource();
         if (!member || !member->IsAlive())
             continue;
-        if (botAI->IsMainTank(member) || botAI->IsAssistTank(member))
+        if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
             continue;
         if (member->GetExactDist2d(waitPos) > threshold)
             return true;
@@ -903,7 +858,7 @@ bool IccGunshipRocketJumpAction::UseRocketPack(Position const& destination, bool
 
     // Throttle rocket pack use to prevent mid-air re-jump spam
     static constexpr uint32 ROCKET_PACK_COOLDOWN_MS = 2500;
-    static std::map<ObjectGuid, uint32> lastRocketPackUse;
+    auto& lastRocketPackUse = IcecrownHelpers::IccState(bot->GetInstanceId()).gsbLastRocketPackUse;
     uint32 const now = getMSTime();
     auto const it = lastRocketPackUse.find(bot->GetGUID());
     bool const onCooldown = it != lastRocketPackUse.end() &&

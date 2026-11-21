@@ -5,14 +5,13 @@
  */
 
 #include "SeeSpellAction.h"
-
+#include "ByteBuffer.h"
 #include "Event.h"
 #include "Formations.h"
 #include "Playerbots.h"
+#include "PositionValue.h"
 #include "RTSCValues.h"
 #include "RtscAction.h"
-#include "PositionValue.h"
-#include "ByteBuffer.h"
 
 std::set<uint32> const FISHING_SPELLS = {7620, 7731, 7732, 18248, 33095, 51294};
 
@@ -20,7 +19,7 @@ Creature* SeeSpellAction::CreateWps(Player* wpOwner, float x, float y, float z, 
                                     bool important)
 {
     float dist = wpOwner->GetDistance(x, y, z);
-    float delay = 1000.0f * dist / wpOwner->GetSpeed(MOVE_RUN) + sPlayerbotAIConfig.reactDelay;
+    float delay = IN_MILLISECONDS * dist / wpOwner->GetSpeed(MOVE_RUN) + sPlayerbotAIConfig.ReactDelay;
 
     if (!important)
         delay *= 0.25;
@@ -61,7 +60,7 @@ bool SeeSpellAction::Execute(Event event)
 
     if (FISHING_SPELLS.find(spellId) != FISHING_SPELLS.end())
     {
-        if (AI_VALUE(bool, "can fish") && sPlayerbotAIConfig.enableFishingWithMaster)
+        if (AI_VALUE(bool, "can fish") && sPlayerbotAIConfig.EnableFishingWithMaster)
         {
             botAI->ChangeStrategy("+master fishing", BOT_STATE_NON_COMBAT);
             return true;
@@ -101,9 +100,9 @@ bool SeeSpellAction::Execute(Event event)
     if (nextAction.empty())
     {
         if (!inRange && selected)
-            master->SendPlaySpellVisual(bot->GetGUID(), 6372);
+            bot->SendPlaySpellVisual(6372);
         else if (inRange && !selected)
-            master->SendPlaySpellVisual(bot->GetGUID(), 5036);
+            bot->SendPlaySpellVisual(5036);
 
         SET_AI_VALUE(bool, "RTSC selected", inRange);
 
@@ -147,11 +146,10 @@ bool SeeSpellAction::Execute(Event event)
 
 bool SeeSpellAction::SelectSpell(WorldPosition& spellPosition)
 {
-    Player* master = botAI->GetMaster();
     if (spellPosition.distance(bot) <= 5 || AI_VALUE(bool, "RTSC selected"))
     {
         SET_AI_VALUE(bool, "RTSC selected", true);
-        master->SendPlaySpellVisual(bot->GetGUID(), 5036);
+        bot->SendPlaySpellVisual(5036);
     }
 
     return true;

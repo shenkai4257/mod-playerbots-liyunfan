@@ -5,7 +5,7 @@
  */
 
 #include "PartyMemberToResurrect.h"
-
+#include "Battleground.h"
 #include "Playerbots.h"
 
 class IsTargetOfResurrectSpell : public SpellEntryPredicate
@@ -44,6 +44,10 @@ private:
 
 Unit* PartyMemberToResurrect::Calculate()
 {
+    Battleground* bg = bot->GetBattleground();
+    if (bg && !bg->isArena())  // Spirit healers revive the dead in battlegrounds; arenas have none
+        return nullptr;
+
     FindDeadPlayer finder(this);
     return FindPartyMember(finder);
 }

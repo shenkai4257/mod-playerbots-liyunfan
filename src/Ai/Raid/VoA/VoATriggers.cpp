@@ -1,5 +1,10 @@
-#include "VoATriggers.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
+#include "VoATriggers.h"
 #include "EventMap.h"
 #include "Object.h"
 #include "PlayerbotAI.h"
@@ -8,7 +13,7 @@
 bool EmalonMarkBossTrigger::IsActive()
 {
     // Only tank bot can mark target
-    if (!botAI->IsTank(bot))
+    if (!PlayerbotAI::IsTank(bot))
     {
         return false;
     }
@@ -63,7 +68,7 @@ bool EmalonLightingNovaTrigger::IsActive()
     }
 
     // Tank dont need to move
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
     {
         return false;
     }
@@ -78,7 +83,7 @@ bool EmalonLightingNovaTrigger::IsActive()
 bool EmalonOverchargeTrigger::IsActive()
 {
     // Only tank bot can mark target
-    if (!botAI->IsTank(bot))
+    if (!PlayerbotAI::IsTank(bot))
     {
         return false;
     }

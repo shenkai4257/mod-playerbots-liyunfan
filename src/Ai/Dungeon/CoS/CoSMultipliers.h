@@ -1,3 +1,9 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_COSMULTIPLIERS_H
 #define PLAYERBOTS_COSMULTIPLIERS_H
 
@@ -6,10 +12,10 @@
 class EpochMultiplier : public Multiplier
 {
     public:
-        EpochMultiplier(PlayerbotAI* ai) : Multiplier(ai, "chrono-lord epoch") {}
+        EpochMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "chrono-lord epoch") {}
 
     public:
-        virtual float GetValue(Action* action);
+        float GetValue(Action* action) override;
 };
 
 #endif

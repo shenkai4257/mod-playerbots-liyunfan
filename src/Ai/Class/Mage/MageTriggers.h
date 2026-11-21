@@ -9,9 +9,9 @@
 
 #include "CureTriggers.h"
 #include "GenericTriggers.h"
+#include "Playerbots.h"
 #include "SharedDefines.h"
 #include "Trigger.h"
-#include "Playerbots.h"
 #include <unordered_set>
 
 // Buff and Out of Combat Triggers
@@ -20,27 +20,27 @@ class ArcaneIntellectOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
     ArcaneIntellectOnPartyTrigger(PlayerbotAI* botAI)
-        : BuffOnPartyTrigger(botAI, "arcane intellect", 4 * 2000) {}
+        : BuffOnPartyTrigger(botAI, "arcane intellect", 8 * IN_MILLISECONDS) {}
 };
 
 class ArcaneIntellectTrigger : public BuffTrigger
 {
 public:
-    ArcaneIntellectTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "arcane intellect", 4 * 2000) {}
+    ArcaneIntellectTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "arcane intellect", 8 * IN_MILLISECONDS) {}
     bool IsActive() override;
 };
 
 class MageArmorTrigger : public BuffTrigger
 {
 public:
-    MageArmorTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "mage armor", 5 * 2000) {}
+    MageArmorTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "mage armor", 10 * IN_MILLISECONDS) {}
     bool IsActive() override;
 };
 
 class MoltenArmorTrigger : public BuffTrigger
 {
 public:
-    MoltenArmorTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "molten armor", 5 * 2000) {}
+    MoltenArmorTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "molten armor", 10 * IN_MILLISECONDS) {}
     bool IsActive() override;
 };
 
@@ -94,12 +94,6 @@ class MissileBarrageTrigger : public HasAuraTrigger
 {
 public:
     MissileBarrageTrigger(PlayerbotAI* botAI) : HasAuraTrigger(botAI, "missile barrage") {}
-};
-
-class ArcaneBlastTrigger : public BuffTrigger
-{
-public:
-    ArcaneBlastTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "arcane blast") {}
 };
 
 class ArcaneBlastStackTrigger : public HasAuraStackTrigger
@@ -307,6 +301,7 @@ class BlastWaveOffCdTrigger : public SpellNoCooldownTrigger
 {
 public:
     BlastWaveOffCdTrigger(PlayerbotAI* botAI) : SpellNoCooldownTrigger(botAI, "blast wave") {}
+    bool IsActive() override;
 };
 
 class BlastWaveOffCdTriggerAndMediumAoeTrigger : public TwoTriggers
@@ -321,10 +316,7 @@ class NoFirestarterStrategyTrigger : public Trigger
 public:
     NoFirestarterStrategyTrigger(PlayerbotAI* botAI) : Trigger(botAI, "no firestarter strategy") {}
 
-    bool IsActive() override
-    {
-        return !botAI->HasStrategy("firestarter", BOT_STATE_COMBAT);
-    }
+    bool IsActive() override;
 };
 
 class EnemyIsCloseAndNoFirestarterStrategyTrigger : public TwoTriggers

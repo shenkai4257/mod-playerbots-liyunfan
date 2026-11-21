@@ -1,5 +1,11 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "DTKActions.h"
+#include "Playerbots.h"
 
 bool CorpseExplodeSpreadAction::Execute(Event /*event*/)
 {
@@ -73,9 +79,9 @@ bool NovosTargetPriorityAction::Execute(Event /*event*/)
         Player* groupMember = botAI->GetPlayer(member);
         if (!groupMember) { continue; }
 
-        if (botAI->IsDps(groupMember))
+        if (PlayerbotAI::IsDps(groupMember))
         {
-            if (botAI->IsMelee(groupMember))
+            if (PlayerbotAI::IsMelee(groupMember))
             {
                 // Found our first melee dps, grab handle and break
                 stairsDps = groupMember;
@@ -104,7 +110,7 @@ bool NovosTargetPriorityAction::Execute(Event /*event*/)
 
         // Tank priority:
         // Hulking Corpse -> Crystal Handler
-        if (botAI->IsTank(bot))
+        if (PlayerbotAI::IsTank(bot))
         {
             if (creatureId == NPC_HULKING_CORPSE)
                 selectedTargets[0] = unit;
@@ -131,7 +137,7 @@ bool NovosTargetPriorityAction::Execute(Event /*event*/)
         }
         // All other dps priority:
         // Crystal Handler -> Hulking Corpse
-        else if (botAI->IsDps(bot))
+        else if (PlayerbotAI::IsDps(bot))
         {
             if (creatureId == NPC_CRYSTAL_HANDLER)
                 selectedTargets[0] = unit;

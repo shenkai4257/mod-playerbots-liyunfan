@@ -5,7 +5,6 @@
  */
 
 #include "AggressiveTargetValue.h"
-
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
@@ -22,7 +21,7 @@ Unit* AggressiveTargetValue::Calculate()
     if (targets.empty())
         return nullptr;
 
-    float aggroRange = sPlayerbotAIConfig.aggroDistance;
+    float aggroRange = sPlayerbotAIConfig.AggroDistance;
     float distance = 0;
     Unit* result = nullptr;
 

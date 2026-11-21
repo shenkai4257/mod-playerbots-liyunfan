@@ -5,7 +5,7 @@
  */
 
 #include "RandomItemMgr.h"
-
+#include "PlayerbotsDatabase.h"
 #include "DBCStores.h"
 #include "ItemTemplate.h"
 #include "Playerbots.h"
@@ -214,7 +214,7 @@ uint32 RandomItemMgr::GetUpgrade(Player* player, std::string spec, uint8 slot, u
             continue;
 
         // skip too low level
-        if (info.minLevel < (player->GetLevel() - 10))
+        if (static_cast<int32>(info.minLevel) < (static_cast<int32>(player->GetLevel()) - 10))
             continue;
 
         // skip wrong team
@@ -968,7 +968,7 @@ uint32 RandomItemMgr::GetAmmo(uint32 level, uint32 subClass) const
         return 0;
 
     std::vector<uint32> const& ammo = subItr->second;
-    if (!sPlayerbotAIConfig.limitGearExpansion)
+    if (!sPlayerbotAIConfig.LimitGearExpansion)
         return ammo.front();
 
     static constexpr uint32 EXPANSION_ITEM_ID_TBC   = 23728; // approx. first item in TBC content (patch 2.0)
@@ -1434,7 +1434,7 @@ bool RandomItemMgr::IsValidItem(ItemTemplate const* proto)
         return false;
 
     // skip items flagged as unobtainable
-    if (sPlayerbotAIConfig.unobtainableItems.contains(proto->ItemId))
+    if (sPlayerbotAIConfig.UnobtainableItems.contains(proto->ItemId))
         return false;
 
     return true;
@@ -2672,6 +2672,10 @@ void RandomItemMgr::BuildCachePotion()
             spellInfo->Effects[EFFECT_0].Effect != SPELL_EFFECT_ENERGIZE)
             continue;
 
+        if (spellInfo->Effects[EFFECT_0].Effect == SPELL_EFFECT_ENERGIZE &&
+            spellInfo->Effects[EFFECT_0].MiscValue != POWER_MANA)
+            continue;
+
         // do not accept potions/flasks with more than one spell effects, only
         // first one effect (EFFECT_0) should be set and eq. heal/energize
         bool hasOtherEffects = false;
@@ -2783,7 +2787,7 @@ void RandomItemMgr::BuildCacheRarity()
         "        SUM(CASE WHEN Chance = 0 THEN 1 ELSE 0 END)      OVER (PARTITION BY entry, GroupId) AS group_zero "
         "    FROM creature_loot_template WHERE item != 0) lt "
         "JOIN creature_template ct ON ct.LootId = lt.entry "
-        "JOIN creature c ON c.id1 = ct.entry "
+        "JOIN creature c ON c.id = ct.entry "
         "GROUP BY lt.item "
         "UNION ALL "
         // <-- gameobject
@@ -2840,7 +2844,7 @@ void RandomItemMgr::BuildCacheRarity()
         "       SUM(CASE WHEN Chance = 0 THEN 1 ELSE 0 END)      OVER (PARTITION BY entry, GroupId) AS group_zero "
         "   FROM skinning_loot_template WHERE item != 0) lt "
         "JOIN creature_template ct ON ct.skinloot = lt.entry "
-        "JOIN creature c ON c.id1 = ct.entry "
+        "JOIN creature c ON c.id = ct.entry "
         "GROUP BY lt.item) q GROUP BY item HAVING max_chance > 0.01 ORDER BY item");
 
     if (!result)
@@ -3039,7 +3043,7 @@ std::vector<EquipmentSlots> const* RandomItemMgr::GetViableSlots(InventoryType i
 
 uint32 RandomItemMgr::NormalizeLevel(uint32 level) const
 {
-    uint32 const levelCap = std::min(sPlayerbotAIConfig.randomBotMaxLevel,
+    uint32 const levelCap = std::min(sPlayerbotAIConfig.RandomBotMaxLevel,
                                      static_cast<uint32>(DEFAULT_MAX_LEVEL));
     return std::min(level, levelCap);
 }

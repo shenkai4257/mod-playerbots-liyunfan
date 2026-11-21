@@ -1,0 +1,1216 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "EncounterHelpers.h"
+#include "AiFactory.h"
+#include "AttackAction.h"
+#include "AttackersValue.h"
+#include "CellImpl.h"
+#include "CharmInfo.h"
+#include "Creature.h"
+#include "CreatureAI.h"
+#include "DKActions.h"
+#include "DruidActions.h"
+#include "DruidBearActions.h"
+#include "DruidCatActions.h"
+#include "GenericSpellActions.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+#include "HunterActions.h"
+#include "InstanceScript.h"
+#include "MageActions.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
+#include "PaladinActions.h"
+#include "PathGenerator.h"
+#include "Pet.h"
+#include "PlayerbotTextMgr.h"
+#include "Playerbots.h"
+#include "RogueActions.h"
+#include "RtiTargetValue.h"
+#include "ShamanActions.h"
+#include "Spell.h"
+#include "SpellInfo.h"
+#include "WarlockActions.h"
+#include "WarriorActions.h"
+#include <algorithm>
+#include <cmath>
+#include <list>
+#include <map>
+#include <string>
+#include <tuple>
+
+namespace EncounterHelpers
+{
+
+// Instance Script Callers
+
+bool IsEncounterInProgress(Player* bot, uint32 mapId)
+{
+    if (bot->GetMapId() != mapId)
+        return false;
+
+    InstanceScript* instance = bot->GetInstanceScript();
+    return instance && instance->IsEncounterInProgress();
+}
+
+bool IsBossInProgress(Player* bot, uint32 mapId, uint32 bossId)
+{
+    if (bot->GetMapId() != mapId)
+        return false;
+
+    InstanceScript* instance = bot->GetInstanceScript();
+    return instance && instance->GetBossState(bossId) == IN_PROGRESS;
+}
+
+std::optional<uint32> GetBossInProgress(Player* bot, uint32 mapId)
+{
+    if (bot->GetMapId() != mapId)
+        return std::nullopt;
+
+    InstanceScript* instance = bot->GetInstanceScript();
+    if (!instance)
+        return std::nullopt;
+
+    for (uint32 bossId = 0; bossId < instance->GetEncounterCount(); ++bossId)
+    {
+        if (instance->GetBossState(bossId) == IN_PROGRESS)
+            return bossId;
+    }
+
+    return std::nullopt;
+}
+
+// Class Roles
+// A job given to one raid member of a class, such as a mage tank.
+
+namespace
+{
+
+constexpr ClassRoleText CLASS_ROLE_ASSISTANT_TEXT = {
+    "class_role_assistant",
+    "%name is the best-geared %class with the assistant flag and is the %role.",
+};
+constexpr ClassRoleText CLASS_ROLE_PREFERRED_SPEC_BOT_TEXT = {
+    "class_role_preferred_spec_bot",
+    "%name is the best-geared %specclass bot and is the %role. Give a %class the assistant flag "
+    "to choose someone else.",
+};
+constexpr ClassRoleText CLASS_ROLE_BOT_TEXT = {
+    "class_role_bot",
+    "%name is the best-geared %class bot and is the %role. Give a %class the assistant flag to "
+    "choose someone else.",
+};
+constexpr ClassRoleText CLASS_ROLE_NONE_TEXT = {
+    "class_role_none",
+    "No %class is present to be the %role.",
+};
+constexpr ClassRoleText CLASS_ROLE_HANDOVER_TEXT = {
+    "class_role_handover",
+    "%name takes over as the %role.",
+};
+
+std::string GetClassRoleText(
+    ClassRoleText const& text, std::map<std::string, std::string> const& placeholders = {})
+{
+    return PlayerbotTextMgr::instance().GetBotTextOrDefault(
+        text.name, text.defaultText, placeholders);
+}
+
+ClassRoleText const& GetClassRoleChoiceText(ClassRoleChoiceReason reason)
+{
+    switch (reason)
+    {
+        case ClassRoleChoiceReason::Assistant:
+            return CLASS_ROLE_ASSISTANT_TEXT;
+        case ClassRoleChoiceReason::PreferredSpecBot:
+            return CLASS_ROLE_PREFERRED_SPEC_BOT_TEXT;
+        case ClassRoleChoiceReason::Bot:
+            return CLASS_ROLE_BOT_TEXT;
+        default:
+            return CLASS_ROLE_NONE_TEXT;
+    }
+}
+
+bool SayClassRoleChoice(
+    PlayerbotAI* botAI, ClassRole const& role, ClassRoleChoice const& choice, bool isHandover)
+{
+    std::map<std::string, std::string> placeholders = {
+        { "%role", GetClassRoleText(role.role) },
+        { "%class", GetClassRoleText(role.candidate) },
+    };
+
+    if (role.preferredSpec)
+        placeholders["%specclass"] = GetClassRoleText(role.preferredCandidate);
+
+    if (!choice.guid.IsEmpty())
+    {
+        Player* player = ObjectAccessor::GetPlayer(*botAI->GetBot(), choice.guid);
+        if (!player)
+            return false;
+
+        placeholders["%name"] = player->GetName();
+    }
+
+    ClassRoleText const& text =
+        isHandover ? CLASS_ROLE_HANDOVER_TEXT : GetClassRoleChoiceText(choice.reason);
+    return botAI->SayToRaid(GetClassRoleText(text, placeholders));
+}
+
+} // end anonymous namespace (Class Roles)
+
+ClassRoleChoice FindClassRoleChoice(PlayerbotAI* botAI, uint32 mapId, ClassRole const& role)
+{
+    Group* group = botAI->GetBot()->GetGroup();
+    if (!group)
+        return {};
+
+    ClassRoleChoice best;
+    uint32 bestGearScore = 0;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member->GetMapId() != mapId || !member->IsAlive() ||
+            member->getClass() != role.playerClass)
+        {
+            continue;
+        }
+
+        ObjectGuid const guid = member->GetGUID();
+        bool const isAssistant = group->IsAssistant(guid);
+        if (!isAssistant && !GET_PLAYERBOT_AI(member))
+            continue;
+
+        std::optional<uint8> spec;
+        if (role.requiredSpec || role.preferredSpec)
+            spec = AiFactory::GetPlayerSpecTab(member);
+
+        if (role.requiredSpec && spec != role.requiredSpec)
+            continue;
+
+        ClassRoleChoiceReason reason = ClassRoleChoiceReason::Bot;
+        if (isAssistant)
+            reason = ClassRoleChoiceReason::Assistant;
+        else if (role.preferredSpec && spec == role.preferredSpec)
+            reason = ClassRoleChoiceReason::PreferredSpecBot;
+
+        auto const rank = std::tuple(reason, botAI->GetEquipGearScore(member));
+        auto const bestRank = std::tuple(best.reason, bestGearScore);
+        if (rank > bestRank || (rank == bestRank && guid < best.guid))
+        {
+            best = { guid, reason };
+            bestGearScore = std::get<1>(rank);
+        }
+    }
+
+    return best;
+}
+
+bool UpdateClassRoleAssignments(
+    PlayerbotAI* botAI, uint32 mapId, std::initializer_list<ClassRoleSlot> slots)
+{
+    Player* bot = botAI->GetBot();
+    bool const isInEncounter = IsEncounterInProgress(bot, mapId);
+    bool changed = false;
+    for (ClassRoleSlot const& slot : slots)
+    {
+        std::optional<ClassRoleChoice>& choice = slot.assignment.choice;
+        if (isInEncounter && GetClassRolePlayer(bot, slot.assignment))
+            continue;
+
+        ClassRoleChoice const next = FindClassRoleChoice(botAI, mapId, slot.role);
+        if (choice == next)
+            continue;
+
+        bool const isHandover = isInEncounter && choice && !next.guid.IsEmpty();
+        choice = next;
+        changed = true;
+
+        if (isHandover && SayClassRoleChoice(botAI, slot.role, next, true))
+            slot.assignment.announcedChoice = next;
+    }
+
+    return changed;
+}
+
+bool UpdateClassRoleAnnouncement(
+    PlayerbotAI* botAI, uint32 bossEntry, Position const& bossSpawn, float announceDistance,
+    float rearmDistance, std::initializer_list<ClassRoleSlot> slots,
+    std::optional<uint32> blockerEntry)
+{
+    Player* bot = botAI->GetBot();
+    float const distance = bot->GetExactDist2d(bossSpawn);
+    if (distance > rearmDistance)
+    {
+        bool reset = false;
+        for (ClassRoleSlot const& slot : slots)
+            reset |= ResetIfSet(slot.assignment.announcedChoice);
+
+        return reset;
+    }
+
+    if (distance > announceDistance)
+        return false;
+
+    auto const isUnannounced = [](ClassRoleSlot const& slot)
+    {
+        return slot.assignment.choice &&
+            slot.assignment.choice != slot.assignment.announcedChoice;
+    };
+
+    if (std::ranges::none_of(slots, isUnannounced))
+        return false;
+
+    // The checks above keep these grid searches to the rare tick with something to announce.
+    if (blockerEntry && bot->FindNearestCreature(*blockerEntry, rearmDistance))
+        return false;
+
+    if (!bot->FindNearestCreature(bossEntry, rearmDistance))
+        return false;
+
+    for (ClassRoleSlot const& slot : slots)
+    {
+        if (!isUnannounced(slot))
+            continue;
+
+        slot.assignment.announcedChoice = slot.assignment.choice;
+        SayClassRoleChoice(botAI, slot.role, *slot.assignment.choice, false);
+    }
+
+    return true;
+}
+
+Player* GetClassRolePlayer(Player* bot, ClassRoleAssignment const& assignment)
+{
+    ObjectGuid const guid = GetClassRolePlayerGuid(assignment);
+    if (guid.IsEmpty())
+        return nullptr;
+
+    Player* player = ObjectAccessor::GetPlayer(*bot, guid);
+    return player && player->IsAlive() ? player : nullptr;
+}
+
+ObjectGuid GetClassRolePlayerGuid(ClassRoleAssignment const& assignment)
+{
+    return assignment.choice ? assignment.choice->guid : ObjectGuid::Empty;
+}
+
+bool IsClassRolePlayer(Player* bot, ClassRoleAssignment const& assignment)
+{
+    ObjectGuid const guid = GetClassRolePlayerGuid(assignment);
+    return !guid.IsEmpty() && guid == bot->GetGUID();
+}
+
+// Raid Target Icons (RTI)
+
+bool MarkTargetWithIcon(Player* bot, Unit* target, uint8 iconId)
+{
+    if (!target)
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    ObjectGuid currentGuid = group->GetTargetIcon(iconId);
+    if (currentGuid != target->GetGUID())
+    {
+        group->SetTargetIcon(iconId, bot->GetGUID(), target->GetGUID());
+        return true;
+    }
+
+    return false;
+}
+
+bool MarkTargetWithSkull(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::skullIndex);
+}
+
+bool MarkTargetWithSquare(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::squareIndex);
+}
+
+bool MarkTargetWithStar(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::starIndex);
+}
+
+bool MarkTargetWithCircle(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::circleIndex);
+}
+
+bool MarkTargetWithDiamond(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::diamondIndex);
+}
+
+bool MarkTargetWithTriangle(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::triangleIndex);
+}
+
+bool MarkTargetWithCross(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::crossIndex);
+}
+
+bool MarkTargetWithMoon(Player* bot, Unit* target)
+{
+    return MarkTargetWithIcon(bot, target, RtiTargetValue::moonIndex);
+}
+
+void SetRtiTarget(PlayerbotAI* botAI, std::string const& rtiName)
+{
+    Value<std::string>* rtiValue =
+        botAI->GetAiObjectContext()->GetValue<std::string>("rti");
+
+    if (rtiValue->Get() != rtiName)
+        rtiValue->Set(rtiName);
+}
+
+bool ClearTargetIcon(Player* bot, uint8 iconId)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    ObjectGuid currentGuid = group->GetTargetIcon(iconId);
+    if (currentGuid != ObjectGuid::Empty)
+    {
+        group->SetTargetIcon(iconId, bot->GetGUID(), ObjectGuid::Empty);
+        return true;
+    }
+
+    return false;
+}
+
+bool ClearStrategyTargetIcon(Player* bot, uint8 iconId, std::initializer_list<uint32> entries)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    uint32 const entry = group->GetTargetIcon(iconId).GetEntry();
+    if (std::find(entries.begin(), entries.end(), entry) == entries.end())
+        return false;
+
+    return ClearTargetIcon(bot, iconId);
+}
+
+// Movement
+
+bool CanTakeStepTowards(
+    Player* bot, float destinationX, float destinationY, float moveDist,
+    float& stepX, float& stepY, float& stepZ)
+{
+    constexpr float minMoveDistance = 0.5f;
+
+    float const distance = bot->GetExactDist2d(destinationX, destinationY);
+    if (distance < minMoveDistance)
+        return false;
+
+    float const botX = bot->GetPositionX();
+    float const botY = bot->GetPositionY();
+    float const botZ = bot->GetPositionZ();
+
+    float const ratio = std::min(moveDist, distance) / distance;
+    float candidateX = botX + (destinationX - botX) * ratio;
+    float candidateY = botY + (destinationY - botY) * ratio;
+    float candidateZ = bot->GetMapWaterOrGroundLevel(candidateX, candidateY, botZ);
+
+    if (candidateZ <= INVALID_HEIGHT)
+        candidateZ = botZ;
+
+    // The ninth parameter of CanReachPositionAndGetValidCoords(), failOnSlopes, returns false for a
+    // non-walkable slope, but in my experience, walking downhill is always possible, and thus the
+    // check needlessly rejects descents. This variable gets around that problem.
+    bool const failOnSlopes = candidateZ > botZ;
+
+    // This helper will return false on collision rather than clamping to the contact point so that
+    // the caller can try a different path. Clamping is useless for avoidance since the bot will die
+    // just the same if it is in the middle of a hazard vs. halfway out and stuck returning true.
+    float const requestedX = candidateX;
+    float const requestedY = candidateY;
+
+    if (!bot->GetMap()->CanReachPositionAndGetValidCoords(
+            bot, botX, botY, botZ, candidateX, candidateY, candidateZ, true, failOnSlopes))
+    {
+        return false;
+    }
+
+    constexpr float truncationTolerance = 1.0f;
+    if (std::hypot(candidateX - requestedX, candidateY - requestedY) > truncationTolerance)
+        return false;
+
+    stepX = candidateX;
+    stepY = candidateY;
+    stepZ = candidateZ;
+    return true;
+}
+
+bool GetPathStepTowardPoint(
+    Player* bot, Position const& destination, float stopDistance, float stepDistance,
+    float& stepX, float& stepY)
+{
+    if (bot->GetExactDist(destination) < stopDistance)
+        return false;
+
+    PathGenerator path(bot);
+    path.CalculatePath(
+        destination.GetPositionX(), destination.GetPositionY(), destination.GetPositionZ());
+    if (!(path.GetPathType() & (PATHFIND_NORMAL | PATHFIND_INCOMPLETE | PATHFIND_SHORTCUT)))
+        return false;
+
+    Movement::PointsArray const& points = path.GetPath();
+    if (points.size() < 2)
+        return false;
+
+    G3D::Vector3 const targetPos(
+        destination.GetPositionX(), destination.GetPositionY(), destination.GetPositionZ());
+
+    float remaining = stepDistance;
+    for (std::size_t i = 1; i < points.size(); ++i)
+    {
+        G3D::Vector3 const& from = points[i - 1];
+        G3D::Vector3 const& to = points[i];
+
+        float const segment = (to - from).length();
+        if (segment <= 0.0f)
+            continue;
+
+        float const toDist = (to - targetPos).length();
+        float ratio = 1.0f;
+
+        if (toDist < stopDistance)
+        {
+            float const fromDist = (from - targetPos).length();
+            if (fromDist <= stopDistance)
+                break;
+
+            float const a = segment * segment;
+            float const b = (from - targetPos).dot(to - from);
+            float const c = fromDist * fromDist - stopDistance * stopDistance;
+            ratio = (-b - std::sqrt(std::max(0.0f, b * b - a * c))) / a;
+        }
+
+        if (segment * ratio >= remaining)
+            ratio = remaining / segment;
+
+        remaining -= segment * ratio;
+
+        G3D::Vector3 const step = from + (to - from) * ratio;
+        stepX = step.x;
+        stepY = step.y;
+
+        if (remaining <= 0.0f || ratio < 1.0f)
+            return true;
+    }
+
+    return remaining < stepDistance;
+}
+
+bool GetPathStepTowardUnit(
+    Player* bot, Unit* target, float stopDistance, float stepDistance, float& stepX, float& stepY)
+{
+    if (!target)
+        return false;
+
+    return GetPathStepTowardPoint(
+        bot, target->GetPosition(), stopDistance, stepDistance, stepX, stepY);
+}
+
+bool GetStepToPosition(
+    Player* bot, Position const& position, float arrivalDist, Unit* facing, float& stepX,
+    float& stepY, bool& backwards)
+{
+    float const distToPosition = bot->GetExactDist2d(position);
+    if (distToPosition <= arrivalDist)
+        return false;
+
+    float const botX = bot->GetPositionX();
+    float const botY = bot->GetPositionY();
+    float const toPosX = position.GetPositionX() - botX;
+    float const toPosY = position.GetPositionY() - botY;
+
+    // 'facing' is optional and is for tanks. Pass the mob being tanked to allow the step to be
+    // walked backwards when (1) the bot has aggro on the mob it is tanking, (2) the bot is in
+    // melee range of the mob, and (3) the destination is on the opposite side of the bot from the
+    // mob. Generally, the entire movement would be gated on (1) and (2) anyway, but there are some
+    // exceptions and thus the checks are made again here. Pass nullptr for a plain forward step.
+    backwards = false;
+    if (facing && facing->GetVictim() == bot && bot->IsWithinMeleeRange(facing))
+    {
+        float const toFacingX = facing->GetPositionX() - botX;
+        float const toFacingY = facing->GetPositionY() - botY;
+        backwards = (toPosX * toFacingX + toPosY * toFacingY) < 0.0f;
+    }
+
+    // Default time between AI ticks is 100ms, and base movement speed for players is 7y/s forwards
+    // and 4.5y/s backwards (i.e., 0.7y/0.45y per tick). There is not really benefit to having the
+    // step be farther than the distance that can be covered in a single tick. But this helper
+    // uses 5x tick distance to account for possible speed boosts, latency, and longer configured
+    // AI ticks. In my experience, this is plenty short enough to navigate poor terrain, but if you
+    // are moving steeply uphill and find that movement is failing, it may be possible that the step
+    // distances would need to be even shorter (in which case you couldn't use this helper).
+    constexpr float backwardDistancePerStep = 2.25f;
+    constexpr float forwardDistancePerStep = 3.5f;
+    float const maxMoveDist = backwards ? backwardDistancePerStep : forwardDistancePerStep;
+    float const ratio = std::min(maxMoveDist, distToPosition) / distToPosition;
+
+    stepX = botX + toPosX * ratio;
+    stepY = botY + toPosY * ratio;
+
+    return true;
+}
+
+// Player Getters
+
+Player* GetGroupMainTank(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    ObjectGuid const mainTankGuid = PlayerbotAI::GetMainTankGuid(group);
+    if (mainTankGuid.IsEmpty())
+        return nullptr;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (member && member->IsAlive() && member->GetGUID() == mainTankGuid)
+            return member;
+    }
+
+    return nullptr;
+}
+
+Player* GetGroupAssistTank(Player* bot, uint8 index)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    ObjectGuid const mainTankGuid = PlayerbotAI::GetMainTankGuid(group);
+    if (mainTankGuid.IsEmpty())
+        return nullptr;
+
+    uint8 assistantCount = 0;
+    std::vector<Player*> nonAssistantTanks;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) ||
+            member->GetGUID() == mainTankGuid)
+        {
+            continue;
+        }
+
+        if (group->IsAssistant(member->GetGUID()))
+        {
+            if (assistantCount == index)
+                return member;
+
+            assistantCount++;
+        }
+        else
+        {
+            nonAssistantTanks.push_back(member);
+        }
+    }
+
+    uint8 nonAssistantIndex = index - assistantCount;
+    if (nonAssistantIndex < nonAssistantTanks.size())
+        return nonAssistantTanks[nonAssistantIndex];
+
+    return nullptr;
+}
+
+Player* GetNearestPlayerInRadius(Player* bot, float radius)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    Player* nearestPlayer = nullptr;
+    float nearestDistance = radius;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsAlive() || member == bot)
+            continue;
+
+        float distance = bot->GetExactDist2d(member);
+        if (distance < nearestDistance)
+        {
+            nearestDistance = distance;
+            nearestPlayer = member;
+        }
+    }
+
+    return nearestPlayer;
+}
+
+// Action Class Checks for Multipliers
+
+bool IsDpsCooldownAction(Player* bot, Action* action)
+{
+    if (bot->getClass() == CLASS_SHAMAN && // Before dps gate to capture Resto
+        (dynamic_cast<CastBloodlustAction*>(action) || dynamic_cast<CastHeroismAction*>(action)))
+    {
+        return true;
+    }
+
+    if (!PlayerbotAI::IsDps(bot))
+        return false;
+
+    if (dynamic_cast<UseTrinketAction*>(action))
+        return true;
+
+    bool isClassCooldown = false;
+    switch (bot->getClass())
+    {
+        case CLASS_DEATH_KNIGHT:
+            isClassCooldown = dynamic_cast<CastSummonGargoyleAction*>(action) ||
+                dynamic_cast<CastDeathchillAction*>(action) ||
+                dynamic_cast<CastEmpowerRuneWeaponAction*>(action) ||
+                dynamic_cast<CastArmyOfTheDeadAction*>(action);
+            break;
+
+        case CLASS_DRUID:
+            isClassCooldown = dynamic_cast<CastStarfallAction*>(action) ||
+                dynamic_cast<CastForceOfNatureAction*>(action) ||
+                dynamic_cast<CastBerserkAction*>(action);
+            break;
+
+        case CLASS_HUNTER:
+            isClassCooldown = dynamic_cast<CastKillCommandAction*>(action) ||
+                dynamic_cast<CastRapidFireAction*>(action) ||
+                dynamic_cast<CastReadinessAction*>(action) ||
+                dynamic_cast<CastBestialWrathAction*>(action);
+            break;
+
+        case CLASS_MAGE:
+            isClassCooldown = dynamic_cast<CastArcanePowerAction*>(action) ||
+                dynamic_cast<CastCombustionAction*>(action) ||
+                dynamic_cast<CastIcyVeinsAction*>(action) ||
+                dynamic_cast<CastMirrorImageAction*>(action) ||
+                dynamic_cast<CastColdSnapAction*>(action) ||
+                dynamic_cast<CastPresenceOfMindAction*>(action);
+            break;
+
+        case CLASS_SHAMAN:
+            isClassCooldown = dynamic_cast<CastElementalMasteryAction*>(action) ||
+                dynamic_cast<CastFeralSpiritAction*>(action) ||
+                dynamic_cast<CastFireElementalTotemAction*>(action) ||
+                dynamic_cast<CastFireElementalTotemMeleeAction*>(action);
+            break;
+
+        case CLASS_PALADIN:
+            isClassCooldown = dynamic_cast<CastAvengingWrathAction*>(action);
+            break;
+
+        case CLASS_ROGUE:
+            isClassCooldown = dynamic_cast<CastKillingSpreeAction*>(action) ||
+                dynamic_cast<CastBladeFlurryAction*>(action) ||
+                dynamic_cast<CastAdrenalineRushAction*>(action) ||
+                dynamic_cast<CastColdBloodAction*>(action);
+            break;
+
+        case CLASS_WARLOCK:
+            isClassCooldown = dynamic_cast<CastMetamorphosisAction*>(action);
+            break;
+
+        case CLASS_WARRIOR:
+            isClassCooldown = dynamic_cast<CastDeathWishAction*>(action) ||
+                dynamic_cast<CastBladestormAction*>(action) ||
+                dynamic_cast<CastRecklessnessAction*>(action);
+            break;
+
+        default:
+            break; // Priest =(
+    }
+
+    if (isClassCooldown)
+        return true;
+
+    switch (bot->getRace())
+    {
+        case RACE_BLOODELF:
+            return dynamic_cast<CastArcaneTorrentAction*>(action);
+
+        case RACE_ORC:
+            return dynamic_cast<CastBloodFuryAction*>(action);
+
+        case RACE_TROLL:
+            return dynamic_cast<CastBerserkingAction*>(action);
+
+        default:
+            return false;
+    }
+}
+
+bool IsTauntAction(Player* bot, Action* action)
+{
+    if (!PlayerbotAI::IsTank(bot))
+        return false;
+
+    switch (bot->getClass())
+    {
+        case CLASS_DEATH_KNIGHT:
+            return dynamic_cast<CastDarkCommandAction*>(action) ||
+                dynamic_cast<CastDeathGripAction*>(action);
+
+        case CLASS_DRUID:
+            return dynamic_cast<CastGrowlAction*>(action) ||
+                dynamic_cast<CastChallengingRoarAction*>(action);
+
+        case CLASS_PALADIN:
+            return dynamic_cast<CastHandOfReckoningAction*>(action) ||
+                dynamic_cast<CastRighteousDefenseAction*>(action);
+
+        case CLASS_WARRIOR:
+            return dynamic_cast<CastTauntAction*>(action) ||
+                dynamic_cast<CastChallengingShoutAction*>(action);
+
+        default:
+            return false;
+    }
+}
+
+bool IsAoeThreatAction(Player* bot, Action* action)
+{
+    if (!PlayerbotAI::IsTank(bot))
+        return false;
+
+    switch (bot->getClass())
+    {
+        case CLASS_DEATH_KNIGHT:
+            return dynamic_cast<CastDeathAndDecayAction*>(action) ||
+                dynamic_cast<CastPestilenceAction*>(action) ||
+                dynamic_cast<CastBloodBoilAction*>(action) ||
+                dynamic_cast<CastHeartStrikeAction*>(action);
+
+        case CLASS_DRUID:
+            return dynamic_cast<CastSwipeBearAction*>(action) ||
+                dynamic_cast<CastMaulAction*>(action) || // Hits multiple targets with the Glyph
+                dynamic_cast<CastDemoralizingRoarAction*>(action) ||
+                dynamic_cast<CastBerserkAction*>(action); // Causes Mangle (Bear) to chain
+
+        case CLASS_PALADIN:
+            return dynamic_cast<CastAvengersShieldAction*>(action) ||
+                dynamic_cast<CastConsecrationAction*>(action) ||
+                dynamic_cast<CastHammerOfTheRighteousAction*>(action);
+
+        case CLASS_WARRIOR:
+            return dynamic_cast<CastThunderClapAction*>(action) ||
+                dynamic_cast<CastShockwaveAction*>(action) ||
+                dynamic_cast<CastCleaveAction*>(action) ||
+                dynamic_cast<CastDemoralizingShoutAction*>(action) ||
+                dynamic_cast<CastDemoralizingShoutWithoutLifeTimeCheckAction*>(action);
+
+        default:
+            return false;
+    }
+}
+
+bool IsDpsHoldCandidate(Player* bot, Action* action)
+{
+    if (!dynamic_cast<CastSpellAction*>(action) && !dynamic_cast<AttackAction*>(action))
+        return false;
+
+    return PlayerbotAI::IsTank(bot) || !dynamic_cast<CastHealingSpellAction*>(action);
+}
+
+float GetDpsHoldValue(Player* bot, Action* action)
+{
+    if (bot->getClass() == CLASS_SHAMAN && dynamic_cast<CastTotemAction*>(action))
+        return 0.0f;
+
+    bool const castOnRaidSpell = dynamic_cast<CastBuffSpellAction*>(action) ||
+        dynamic_cast<CastCureSpellAction*>(action) ||
+        dynamic_cast<CurePartyMemberAction*>(action) ||
+        dynamic_cast<ResurrectPartyMemberAction*>(action) ||
+        dynamic_cast<CastProtectSpellAction*>(action);
+
+    return castOnRaidSpell ? 1.0f : 0.0f;
+}
+
+// Stopping Attacks and Spells
+
+namespace
+{
+
+// Blizzard, Hurricane, Rain of Fire, and Volley have no unit target. TARGET_DEST_DYNOBJ_ENEMY
+// excludes friendly channeled AoEs.
+bool IsGroundChannelOnEnemies(Spell const* channel)
+{
+    return channel && std::ranges::any_of(
+        channel->GetSpellInfo()->Effects, [](SpellEffectInfo const& effect)
+        { return effect.TargetA.GetTarget() == TARGET_DEST_DYNOBJ_ENEMY; });
+}
+
+bool IsAutoRepeatAimedAt(Player* bot, Unit* target)
+{
+    if (!target)
+        return false;
+
+    Spell* shot = bot->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+    return shot && shot->m_targets.GetUnitTargetGUID() == target->GetGUID();
+}
+
+// True if the channel is on this unit, or on the ground at enemies (which counts as on every
+// enemy). Excludes a self-channel (e.g., Evocation).
+bool IsChannelAimedAt(Player* bot, Unit* target)
+{
+    if (!target)
+        return false;
+
+    Spell* channel = bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
+    return channel && (channel->m_targets.GetUnitTargetGUID() == target->GetGUID() ||
+        IsGroundChannelOnEnemies(channel));
+}
+
+// True if the channel is on a hostile unit, whichever one, or on the ground at enemies. Excludes a
+// self-channel or channeled heal (Tranquility, Divine Hymn, Penance on an ally).
+bool IsOffensiveChannel(Player* bot, Spell const* channel)
+{
+    if (!channel)
+        return false;
+
+    if (Unit* unitTarget = channel->m_targets.GetUnitTarget())
+        return bot->IsHostileTo(unitTarget);
+
+    return IsGroundChannelOnEnemies(channel);
+}
+
+} // end anonymous namespace (Stopping Attacks and Spells)
+
+bool IsAttackingTarget(Player* bot, Unit* target)
+{
+    if (!target)
+        return false;
+
+    return bot->GetVictim() == target || IsAutoRepeatAimedAt(bot, target) ||
+        IsChannelAimedAt(bot, target);
+}
+
+bool StopAttackingAndChanneling(Player* bot)
+{
+    bool isStopped = false;
+    if (bot->GetVictim())
+    {
+        bot->AttackStop();
+        isStopped = true;
+    }
+
+    if (bot->GetCurrentSpell(CURRENT_MELEE_SPELL))
+    {
+        // AttackStop returns early without a victim, which would leave a queued swing ability.
+        bot->InterruptSpell(CURRENT_MELEE_SPELL);
+        isStopped = true;
+    }
+
+    if (bot->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL))
+    {
+        bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
+        isStopped = true;
+    }
+
+    Spell* channel = bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
+    if (channel && IsOffensiveChannel(bot, channel))
+    {
+        bot->InterruptSpell(CURRENT_CHANNELED_SPELL);
+        isStopped = true;
+    }
+
+    return isStopped;
+}
+
+// Unlike StopAttackingAndChanneling, a queued swing ability is canceled only if the bot's swing is
+// on the target (by AttackStop). Otherwise, it fires at the bot's actual victim, not the target.
+bool StopAttackingTarget(Player* bot, Unit* target)
+{
+    if (!target)
+        return false;
+
+    bool isStopped = false;
+    if (bot->GetVictim() == target)
+    {
+        bot->AttackStop();
+        isStopped = true;
+    }
+
+    if (IsAutoRepeatAimedAt(bot, target))
+    {
+        bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
+        isStopped = true;
+    }
+
+    if (IsChannelAimedAt(bot, target))
+    {
+        bot->InterruptSpell(CURRENT_CHANNELED_SPELL);
+        isStopped = true;
+    }
+
+    return isStopped;
+}
+
+void StandDown(PlayerbotAI* botAI)
+{
+    StopAttackingAndChanneling(botAI->GetBot());
+    botAI->GetAiObjectContext()->GetValue<Unit*>("current target")->Set(nullptr);
+}
+
+bool SelectTarget(PlayerbotAI* botAI, Unit* target)
+{
+    if (!target)
+        return false;
+
+    auto* currentTarget = botAI->GetAiObjectContext()->GetValue<Unit*>("current target");
+    Unit* oldTarget = currentTarget->Get();
+    if (oldTarget == target && botAI->GetState() == BOT_STATE_COMBAT)
+        return false;
+
+    Player* bot = botAI->GetBot();
+    if (!AttackersValue::IsValidTarget(target, bot))
+        return false;
+
+    if (oldTarget && oldTarget != target)
+        StopAttackingTarget(bot, oldTarget);
+
+    // The swing and the current target can differ if the target changed without calling Attack.
+    if (bot->GetVictim() && bot->GetVictim() != target)
+        bot->AttackStop();
+
+    currentTarget->Set(target);
+    bot->SetSelection(target->GetGUID());
+    botAI->ChangeEngine(BOT_STATE_COMBAT);
+    return true;
+}
+
+// Commanding Pets
+
+namespace
+{
+
+bool IsControllableMinion(Unit* unit)
+{
+    Creature* creature = unit ? unit->ToCreature() : nullptr;
+    return creature && creature->IsAlive() && creature->GetCharmInfo();
+}
+
+} // end anonymous namespace (Commanding Pets)
+
+void CallBackPets(Player* bot)
+{
+    for (Unit* controlled : bot->m_Controlled)
+    {
+        Creature* pet = controlled->ToCreature();
+        CharmInfo* charmInfo = pet ? pet->GetCharmInfo() : nullptr;
+        if (!charmInfo || !pet->IsAlive())
+            continue;
+
+        pet->AttackStop();
+        pet->CastStop();
+        pet->ClearInPetCombat();
+        pet->GetMotionMaster()->MoveFollow(bot, PET_FOLLOW_DIST, pet->GetFollowAngle());
+        if (Pet* playerPet = pet->ToPet())
+            playerPet->ClearCastWhenWillAvailable();
+
+        charmInfo->SetCommandState(COMMAND_FOLLOW);
+        charmInfo->SetIsCommandAttack(false);
+        charmInfo->SetIsAtStay(false);
+        charmInfo->SetIsReturning(true);
+        charmInfo->SetIsCommandFollow(true);
+        charmInfo->SetIsFollowing(false);
+        charmInfo->RemoveStayPosition();
+        charmInfo->SetForcedSpell(0);
+        charmInfo->SetForcedTargetGUID();
+    }
+}
+
+bool CommandPetAttack(Creature* pet, Unit* target)
+{
+    if (!pet || !pet->IsAlive() || !target)
+        return false;
+
+    if (Unit* owner = pet->GetCharmerOrOwner(); owner && !owner->IsValidAttackTarget(target))
+        return false;
+
+    if (!pet->IsCharmed() && !pet->CanCreatureAttack(target))
+        return false;
+
+    CharmInfo* charmInfo = pet->GetCharmInfo();
+    if (pet->GetVictim() == target && (!charmInfo || charmInfo->IsCommandAttack()))
+        return false;
+
+    pet->ClearUnitState(UNIT_STATE_FOLLOW);
+    pet->AttackStop();
+    if (charmInfo)
+    {
+        charmInfo->SetIsCommandAttack(true);
+        charmInfo->SetIsAtStay(false);
+        charmInfo->SetIsFollowing(false);
+        charmInfo->SetIsCommandFollow(false);
+        charmInfo->SetIsReturning(false);
+    }
+
+    if (pet->IsAIEnabled)
+        pet->AI()->AttackStart(target);
+    else
+        pet->Attack(target, true);
+
+    return true;
+}
+
+bool HasControllableMinion(Player* bot)
+{
+    return std::any_of(bot->m_Controlled.begin(), bot->m_Controlled.end(), IsControllableMinion);
+}
+
+bool IsMinionStanceWrongForHold(Player* bot, bool isHeld)
+{
+    return std::any_of(
+        bot->m_Controlled.begin(), bot->m_Controlled.end(),
+        [isHeld](Unit* unit)
+        {
+            return IsControllableMinion(unit) &&
+                unit->ToCreature()->HasReactState(REACT_PASSIVE) != isHeld;
+        });
+}
+
+bool SetMinionStancesForHold(Player* bot, bool isHeld, std::vector<SavedMinionStance>& savedStances)
+{
+    if (!isHeld)
+    {
+        Pet* pet = bot->GetPet();
+        CharmInfo* petCharmInfo = pet ? pet->GetCharmInfo() : nullptr;
+        uint32 const petNumber = petCharmInfo ? petCharmInfo->GetPetNumber() : 0;
+
+        bool restored = false;
+        std::vector<SavedMinionStance> petsAway;
+        for (SavedMinionStance const& saved : savedStances)
+        {
+            Creature* minion = nullptr;
+            if (!saved.petNumber)
+                minion = ObjectAccessor::GetCreatureOrPetOrVehicle(*bot, saved.guid);
+            else if (saved.petNumber == petNumber)
+                minion = pet;
+
+            if (minion)
+            {
+                minion->SetReactState(saved.reactState);
+                restored = true;
+            }
+            // A missing guardian has expired, and a new one starts with its default stance, so
+            // its entry is dropped. A missing pet keeps its entry: it comes back passive when it
+            // is revived or summoned again.
+            else if (saved.petNumber)
+                petsAway.push_back(saved);
+        }
+
+        savedStances = std::move(petsAway);
+        return restored;
+    }
+
+    std::vector<Creature*> minionsToHold;
+    for (Unit* unit : bot->m_Controlled)
+    {
+        if (IsControllableMinion(unit) && !unit->ToCreature()->HasReactState(REACT_PASSIVE))
+            minionsToHold.push_back(unit->ToCreature());
+    }
+
+    if (minionsToHold.empty())
+        return false;
+
+    CallBackPets(bot);
+    for (Creature* minion : minionsToHold)
+    {
+        uint32 const petNumber = minion->IsPet() ? minion->GetCharmInfo()->GetPetNumber() : 0;
+        savedStances.push_back({ minion->GetGUID(), petNumber, minion->GetReactState() });
+        minion->SetReactState(REACT_PASSIVE);
+    }
+
+    return true;
+}
+
+// Miscellaneous
+
+bool IsMechanicTrackerBot(Player* bot, uint32 mapId)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsAlive() || member->GetMapId() != mapId ||
+            !GET_PLAYERBOT_AI(member))
+        {
+            continue;
+        }
+
+        return member == bot;
+    }
+
+    return false;
+}
+
+std::vector<Position> GetDynamicObjectPositions(Player* bot, float searchRadius, uint32 spellId)
+{
+    std::list<WorldObject*> objs;
+    Acore::AllWorldObjectsInRange check(bot, searchRadius);
+    Acore::WorldObjectListSearcher<Acore::AllWorldObjectsInRange> searcher(
+        bot, objs, check, GRID_MAP_TYPE_MASK_DYNAMICOBJECT);
+    Cell::VisitObjects(bot, searcher, searchRadius);
+
+    std::vector<Position> dynObjs;
+    for (WorldObject* obj : objs)
+    {
+        if (obj->GetTypeId() != TYPEID_DYNAMICOBJECT)
+            continue;
+
+        DynamicObject* dynObj = static_cast<DynamicObject*>(obj);
+        if (dynObj->GetSpellId() == spellId)
+        {
+            dynObjs.emplace_back(
+                dynObj->GetPositionX(), dynObj->GetPositionY(), dynObj->GetPositionZ());
+        }
+    }
+
+    return dynObjs;
+}
+
+uint32 GetSelfImmunitySpell(Player* bot)
+{
+    constexpr uint32 SPELL_ICE_BLOCK = 45438;
+    constexpr uint32 SPELL_DIVINE_SHIELD = 642;
+    constexpr uint32 SPELL_CLOAK_OF_SHADOWS = 31224;
+
+    switch (bot->getClass())
+    {
+        case CLASS_MAGE:
+            return SPELL_ICE_BLOCK;
+
+        case CLASS_PALADIN:
+            return SPELL_DIVINE_SHIELD;
+
+        case CLASS_ROGUE:
+            return SPELL_CLOAK_OF_SHADOWS;
+
+        default:
+            return 0;
+    }
+}
+
+}

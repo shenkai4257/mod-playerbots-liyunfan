@@ -1,8 +1,12 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "NewRpgInfo.h"
-
-#include <cmath>
-
 #include "Timer.h"
+#include <cmath>
 
 void NewRpgInfo::ChangeToGoGrind(WorldPosition pos)
 {
@@ -28,7 +32,7 @@ void NewRpgInfo::ChangeToWanderRandom()
     data = WanderRandom{};
 }
 
-void NewRpgInfo::ChangeToDoQuest(uint32 questId, const Quest* quest)
+void NewRpgInfo::ChangeToDoQuest(uint32 questId, Quest const* quest)
 {
     startT = getMSTime();
     DoQuest do_quest;
@@ -56,6 +60,12 @@ void NewRpgInfo::ChangeToOutdoorPvp(ObjectGuid::LowType capturePointSpawnId)
     data = pvp;
 }
 
+void NewRpgInfo::ChangeToDoGather()
+{
+    startT = getMSTime();
+    data = DoGather{};
+}
+
 void NewRpgInfo::ChangeToRest()
 {
     startT = getMSTime();
@@ -66,6 +76,8 @@ void NewRpgInfo::ChangeToIdle()
 {
     startT = getMSTime();
     data = Idle{};
+    questGiver.Clear();
+    ignoredQuestGivers.clear();
 }
 
 bool NewRpgInfo::CanChangeTo(NewRpgStatus)
@@ -77,6 +89,8 @@ void NewRpgInfo::Reset()
 {
     data = Idle{};
     startT = getMSTime();
+    questGiver.Clear();
+    ignoredQuestGivers.clear();
 }
 
 void NewRpgInfo::SetMoveFarTo(WorldPosition pos)
@@ -85,6 +99,21 @@ void NewRpgInfo::SetMoveFarTo(WorldPosition pos)
     stuckTs = 0;
     stuckAttempts = 0;
     moveFarPos = pos;
+}
+
+NewRpgStatus NewRpgInfo::StatusFromString(std::string const& name)
+{
+    if (name == "idle")           return RPG_IDLE;
+    if (name == "rest")           return RPG_REST;
+    if (name == "wander random")  return RPG_WANDER_RANDOM;
+    if (name == "wander npc")     return RPG_WANDER_NPC;
+    if (name == "go grind")       return RPG_GO_GRIND;
+    if (name == "go camp")        return RPG_GO_CAMP;
+    if (name == "do quest")       return RPG_DO_QUEST;
+    if (name == "travel flight")  return RPG_TRAVEL_FLIGHT;
+    if (name == "outdoor pvp")    return RPG_OUTDOOR_PVP;
+    if (name == "do gather")      return RPG_DO_GATHER;
+    return RPG_STATUS_END;
 }
 
 NewRpgStatus NewRpgInfo::GetStatus()
@@ -100,6 +129,7 @@ NewRpgStatus NewRpgInfo::GetStatus()
         if constexpr (std::is_same_v<T, DoQuest>) return RPG_DO_QUEST;
         if constexpr (std::is_same_v<T, TravelFlight>) return RPG_TRAVEL_FLIGHT;
         if constexpr (std::is_same_v<T, OutdoorPvP>) return RPG_OUTDOOR_PVP;
+        if constexpr (std::is_same_v<T, DoGather>) return RPG_DO_GATHER;
         return RPG_IDLE;
     }, data);
 }
@@ -128,7 +158,8 @@ std::string NewRpgInfo::ToString()
         else if constexpr (std::is_same_v<T, WanderNpc>)
         {
             out << "WANDER_NPC";
-            out << "\nnpcOrGoEntry: " << arg.npcOrGo.GetCounter();
+            out << "\nnpcOrGo: entry " << arg.npcOrGo.GetEntry() << " (guid " << arg.npcOrGo.GetCounter()
+                << ")";
             out << "\nlastWanderNpc: " << startT;
             out << "\nlastReachNpcOrGo: " << arg.lastReach;
         }
@@ -170,6 +201,15 @@ std::string NewRpgInfo::ToString()
                 out << "\nNo capture point assigned.";
             else
                 out << "\ncapturePointSpawnId: " << arg.capturePointSpawnId;
+        }
+        else if constexpr (std::is_same_v<T, DoGather>)
+        {
+            out << "DO_GATHER";
+            out << "\nnodeSpawnId: " << arg.nodeSpawnId;
+            out << "\nnodePos: " << arg.nodePos.GetMapId() << " " << arg.nodePos.GetPositionX() << " "
+                << arg.nodePos.GetPositionY() << " " << arg.nodePos.GetPositionZ();
+            out << "\nvisited: " << arg.visited.size();
+            out << "\nlastReach: " << (arg.lastReach ? GetMSTimeDiffToNow(arg.lastReach) : 0);
         }
         else
             out << "UNKNOWN";

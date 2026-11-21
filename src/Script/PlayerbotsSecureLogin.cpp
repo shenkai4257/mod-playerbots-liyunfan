@@ -1,9 +1,14 @@
-#include "ScriptMgr.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "ObjectAccessor.h"
 #include "Opcodes.h"
 #include "Player.h"
-#include "ObjectAccessor.h"
-
 #include "Playerbots.h"
+#include "ScriptMgr.h"
 
 namespace
 {
@@ -16,8 +21,8 @@ namespace
         if (!p)
             return nullptr;
 
-        PlayerbotAI* ai = GET_PLAYERBOT_AI(p);
-        if (!ai || ai->IsRealPlayer())
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(p);
+        if (!botAI || IsSelfBot(p))
             return nullptr;
 
         return p;
@@ -28,12 +33,12 @@ namespace
         if (!target)
             return;
 
-        PlayerbotAI* ai = GET_PLAYERBOT_AI(target);
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(target);
 
-        if (!ai)
+        if (!botAI)
             return;
 
-        if (Player* master = ai->GetMaster())
+        if (Player* master = botAI->GetMaster())
         {
             if (PlayerbotMgr* mgr = GET_PLAYERBOT_MGR(master))
             {

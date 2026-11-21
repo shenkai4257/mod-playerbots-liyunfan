@@ -1,6 +1,10 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
 #include "AssassinationRogueStrategy.h"
-
 #include "Playerbots.h"
 
 class AssassinationRogueStrategyActionNodeFactory : public NamedObjectFactory<ActionNode>
@@ -11,7 +15,6 @@ public:
         creators["mutilate"] = &mutilate;
         creators["envenom"] = &envenom;
         creators["backstab"] = &backstab;
-        creators["rupture"] = &rupture;
     }
 
 private:
@@ -42,18 +45,10 @@ private:
             /*C*/ {}
         );
     }
-    static ActionNode* rupture([[maybe_unused]] PlayerbotAI* botAI)
-    {
-        return new ActionNode(
-            "rupture",
-            /*P*/ {},
-            /*A*/ { NextAction("eviscerate") },
-            /*C*/ {}
-        );
-    }
 };
 
-AssassinationRogueStrategy::AssassinationRogueStrategy(PlayerbotAI* ai) : MeleeCombatStrategy(ai)
+AssassinationRogueStrategy::AssassinationRogueStrategy(PlayerbotAI* botAI)
+    : GenericRogueStrategy(botAI)
 {
     actionNodeFactories.Add(new AssassinationRogueStrategyActionNodeFactory());
 }
@@ -67,7 +62,7 @@ std::vector<NextAction> AssassinationRogueStrategy::getDefaultActions()
 
 void AssassinationRogueStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
-    MeleeCombatStrategy::InitTriggers(triggers);
+    GenericRogueStrategy::InitTriggers(triggers);
 
     triggers.push_back(
         new TriggerNode(
@@ -130,81 +125,6 @@ void AssassinationRogueStrategy::InitTriggers(std::vector<TriggerNode*>& trigger
             "expose armor",
             {
                 NextAction("expose armor", ACTION_HIGH + 3),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "medium threat",
-            {
-                NextAction("vanish", ACTION_HIGH),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "low health",
-            {
-                NextAction("evasion", ACTION_HIGH + 9),
-                NextAction("feint", ACTION_HIGH + 8)
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "critical health",
-            {
-                NextAction("cloak of shadows", ACTION_HIGH + 7)
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "kick",
-            {
-                NextAction("kick", ACTION_INTERRUPT + 2),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "kick on enemy healer",
-            {
-                NextAction("kick on enemy healer", ACTION_INTERRUPT + 1),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "medium aoe",
-            {
-                NextAction("fan of knives", ACTION_NORMAL + 5),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "low tank threat",
-            {
-                NextAction("tricks of the trade on main tank", ACTION_HIGH + 7),
-            }
-        )
-    );
-
-    triggers.push_back(
-        new TriggerNode(
-            "enemy out of melee",
-            {
-                NextAction("stealth", ACTION_HIGH + 3),
-                NextAction("sprint", ACTION_HIGH + 2),
-                NextAction("reach melee", ACTION_HIGH + 1),
             }
         )
     );

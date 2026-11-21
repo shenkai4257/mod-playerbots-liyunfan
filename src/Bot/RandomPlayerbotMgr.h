@@ -7,11 +7,16 @@
 #ifndef PLAYERBOTS_RANDOMPLAYERBOTMGR_H
 #define PLAYERBOTS_RANDOMPLAYERBOTMGR_H
 
+#include "GameTime.h"
 #include "NewRpgInfo.h"
 #include "ObjectGuid.h"
-#include "PlayerbotMgr.h"
-#include "GameTime.h"
 #include "PlayerbotCommandServer.h"
+#include "PlayerbotMgr.h"
+#include <algorithm>
+#include <array>
+#include <mutex>
+#include <set>
+#include <unordered_set>
 
 struct BattlegroundInfo
 {
@@ -42,6 +47,31 @@ struct BattlegroundInfo
     // Players (Battleground)
     uint32 bgHordePlayerCount = 0;
     uint32 bgAlliancePlayerCount = 0;
+
+    std::vector<uint32> bgPlayerInstances;
+    std::map<uint32, uint32> bgInstanceCapacity;
+    std::map<uint32, std::array<uint32, 2>> bgInstanceBots;
+    uint32 bgAutoJoinTarget = 0;
+
+    uint32 DemandedBgSlotsPerTeam(uint32 queueTeamSize, TeamId team) const
+    {
+        uint32 slots = activeBgQueue * queueTeamSize;
+        uint32 botOnlyCounted = 0;
+        for (auto const& [instanceId, capacity] : bgInstanceCapacity)
+        {
+            if (std::find(bgPlayerInstances.begin(), bgPlayerInstances.end(), instanceId) != bgPlayerInstances.end())
+                slots += capacity;
+            else if (botOnlyCounted < bgAutoJoinTarget)
+            {
+                slots += capacity;
+                ++botOnlyCounted;
+            }
+            // a bot-only instance past the auto-join target only counts the bots it already has
+            else if (auto bots = bgInstanceBots.find(instanceId); bots != bgInstanceBots.end())
+                slots += bots->second[team];
+        }
+        return slots;
+    }
 };
 
 class ChatHandler;
@@ -121,7 +151,12 @@ public:
     Player* GetRandomPlayer();
     std::vector<Player*> GetPlayers() { return players; };
     PlayerBotMap GetAllBots() { return playerBots; };
+    void InitArenaTeams();
     void PrintStats();
+    void PrintQuestTotals(NewRpgStatistic const& stats);
+    NewRpgStatistic CollectQuestStats();
+    void PrintQuestStats();
+    void ExportQuestStatsToJson();
     double GetBuyMultiplier(Player* bot);
     double GetSellMultiplier(Player* bot);
     void AddTradeDiscount(Player* bot, Player* master, int32 value);
@@ -172,16 +207,17 @@ public:
     // Account type management
     void AssignAccountTypes();
     bool IsAccountType(uint32 accountId, uint8 accountType);
+    bool IsAddClassAccount(uint32 accountId) const;
 
 protected:
     void OnBotLoginInternal(Player* const bot) override;
 
 private:
-    RandomPlayerbotMgr() : PlayerbotHolder(), processTicks(0)
+    RandomPlayerbotMgr() : PlayerbotHolder()
     {
-        this->playersLevel = sPlayerbotAIConfig.randombotStartingLevel;
+        this->playersLevel = sPlayerbotAIConfig.RandomBotStartingLevel;
 
-        if (sPlayerbotAIConfig.enabled || sPlayerbotAIConfig.randomBotAutologin)
+        if (sPlayerbotAIConfig.Enabled || sPlayerbotAIConfig.RandomBotAutologin)
         {
             PlayerbotCommandServer::instance().Start();
         }
@@ -208,8 +244,8 @@ private:
 
     ~RandomPlayerbotMgr() = default;
 
-    RandomPlayerbotMgr(const RandomPlayerbotMgr&) = delete;
-    RandomPlayerbotMgr& operator=(const RandomPlayerbotMgr&) = delete;
+    RandomPlayerbotMgr(RandomPlayerbotMgr const&) = delete;
+    RandomPlayerbotMgr& operator=(RandomPlayerbotMgr const&) = delete;
 
     RandomPlayerbotMgr(RandomPlayerbotMgr&&) = delete;
     RandomPlayerbotMgr& operator=(RandomPlayerbotMgr&&) = delete;
@@ -219,6 +255,9 @@ private:
     float activityMod = 0.25;
     bool _isBotInitializing = true;
     bool _isBotLogging = true;
+    bool _botCountRolled = false;
+    time_t _nextScheduledCountUpdate = 0;
+    uint32 _rolledCountMode = 0;
     NewRpgStatistic rpgStasticTotal;
     CachedEvent* FindEvent(uint32 bot, std::string const& event);
     uint32 GetEventValue(uint32 bot, std::string const& event);
@@ -234,22 +273,33 @@ private:
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
     uint32 AddRandomBots();
+    uint32 RemoveRandomBots();
+    uint32 GetScheduledBotCount();
+    bool IsRemovableBot(Player* bot);
     bool ProcessBot(uint32 bot);
     void ScheduleRandomize(uint32 bot, uint32 time);
     void RandomTeleport(Player* bot);
     void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false);
     uint32 GetZoneLevel(uint16 mapId, float teleX, float teleY, float teleZ);
+    void UpdatePlayerZones();
+    std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
+    std::vector<WorldLocation> GetPlayerZoneHubLocations(std::vector<WorldLocation> const& hubs, Player* bot);
+    std::set<std::pair<uint32, uint32>> GetPlayerZones();
+    std::vector<WorldLocation> FilterPlayerZoneTeleportLocations(
+        std::vector<WorldLocation> const& locs, Player* bot, std::set<std::pair<uint32, uint32>> const& playerMapZones);
     typedef void (RandomPlayerbotMgr::*ConsoleCommandHandler)(Player*);
     std::vector<Player*> players;
-    uint32 processTicks;
 
     // std::map<uint32, std::vector<WorldLocation>> rpgLocsCache;
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> rpgLocsCacheLevel;
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
+    std::unordered_map<uint32, ObjectGuid::LowType> BattleMasterSpawnIds;
     std::unordered_map<uint32, BotEventCache> eventCache;
-    std::list<uint32> currentBots;
-    uint32 bgBotsCount;
+    std::unordered_set<uint32> currentBots;
     uint32 playersLevel;
+    // Written on the world thread, read from map threads.
+    std::set<std::pair<uint32, uint32>> _playerZones;
+    std::mutex _playerZonesLock;
 
     // Account lists
     std::vector<uint32> rndBotTypeAccounts;             // Accounts marked as RNDbot (type 1)

@@ -6,6 +6,7 @@
 
 #include "PartyMemberWithoutAuraValue.h"
 
+#include "GenericBuffUtils.h"
 #include "Playerbots.h"
 
 extern std::vector<std::string> split(std::string const s, char delim);
@@ -16,17 +17,22 @@ public:
     PlayerWithoutAuraPredicate(PlayerbotAI* botAI, std::string const aura)
         : FindPlayerPredicate(), PlayerbotAIAware(botAI), auras(split(aura, ','))
     {
+        if (!auras.empty() && !ai::buff::GroupVariantFor(auras.front()).empty())
+        {
+            uint32 const spellId = botAI->GetAiObjectContext()->GetValue<uint32>("spell id", auras.front())->Get();
+            buffSpellInfo = sSpellMgr->GetSpellInfo(spellId);
+        }
     }
 
 public:
     bool Check(Unit* unit) override
     {
-        if (!unit->IsAlive())
+        if (!unit->IsAlive() || (buffSpellInfo && !buffSpellInfo->GetAuraRankForLevel(unit->GetLevel())))
             return false;
 
         for (std::vector<std::string>::iterator i = auras.begin(); i != auras.end(); ++i)
         {
-            if (botAI->HasAura(*i, unit))
+            if (!ai::buff::BuffBelowRefreshTarget(botAI, botAI->GetAura(*i, unit), 0))
                 return false;
         }
 
@@ -35,6 +41,7 @@ public:
 
 private:
     std::vector<std::string> auras;
+    SpellInfo const* buffSpellInfo = nullptr;
 };
 
 Unit* PartyMemberWithoutAuraValue::Calculate()

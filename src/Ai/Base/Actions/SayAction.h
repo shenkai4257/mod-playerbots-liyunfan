@@ -8,8 +8,8 @@
 #define PLAYERBOTS_SAYACTION_H
 
 #include "Action.h"
-#include "PlayerbotAI.h"
 #include "NamedObjectContext.h"
+#include "PlayerbotAI.h"
 
 class PlayerbotAI;
 class SayAction : public Action, public Qualified
@@ -29,7 +29,7 @@ private:
 class ChatReplyAction : public Action
 {
 public:
-    ChatReplyAction(PlayerbotAI* ai) : Action(ai, "chat message") {}
+    ChatReplyAction(PlayerbotAI* botAI) : Action(botAI, "chat message") {}
     virtual bool Execute(Event /*event*/) { return true; }
     bool isUseful() { return true; }
 

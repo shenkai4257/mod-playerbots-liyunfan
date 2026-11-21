@@ -7,10 +7,9 @@
 #ifndef PLAYERBOTS_PLAYERBOTDUNGEONREPOSITORY_H
 #define PLAYERBOTS_PLAYERBOTDUNGEONREPOSITORY_H
 
-#include <vector>
-#include <string>
-
 #include "DBCEnums.h"
+#include <string>
+#include <vector>
 
 struct DungeonSuggestion
 {
@@ -40,8 +39,8 @@ private:
     PlayerbotDungeonRepository() = default;
     ~PlayerbotDungeonRepository() = default;
 
-    PlayerbotDungeonRepository(const PlayerbotDungeonRepository&) = delete;
-    PlayerbotDungeonRepository& operator=(const PlayerbotDungeonRepository&) = delete;
+    PlayerbotDungeonRepository(PlayerbotDungeonRepository const&) = delete;
+    PlayerbotDungeonRepository& operator=(PlayerbotDungeonRepository const&) = delete;
 
     PlayerbotDungeonRepository(PlayerbotDungeonRepository&&) = delete;
     PlayerbotDungeonRepository& operator=(PlayerbotDungeonRepository&&) = delete;

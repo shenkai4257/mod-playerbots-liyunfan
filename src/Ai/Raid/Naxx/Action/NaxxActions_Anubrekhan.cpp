@@ -1,6 +1,12 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "NaxxActions.h"
 #include "ObjectGuid.h"
 #include "Playerbots.h"
-#include "NaxxActions.h"
 
 bool AnubrekhanChooseTargetAction::Execute(Event /*event*/)
 {
@@ -19,7 +25,7 @@ bool AnubrekhanChooseTargetAction::Execute(Event /*event*/)
         if (botAI->EqualLowercaseName(unit->GetName(), "anub'rekhan"))
             target_boss = unit;
     }
-    if (botAI->IsMainTank(bot))
+    if (PlayerbotAI::IsMainTank(bot))
         target = target_boss;
     else
     {
@@ -27,12 +33,12 @@ bool AnubrekhanChooseTargetAction::Execute(Event /*event*/)
             target = target_boss;
         else
         {
-            if (botAI->IsAssistTank(bot))
+            if (PlayerbotAI::IsAssistTank(bot))
             {
                 for (Unit* t : target_guards)
                 {
                     if (target == nullptr || (target->GetVictim() && target->GetVictim()->ToPlayer() &&
-                                              botAI->IsTank(target->GetVictim()->ToPlayer())))
+                                              PlayerbotAI::IsTank(target->GetVictim()->ToPlayer())))
                         target = t;
                 }
             }
@@ -61,7 +67,7 @@ bool AnubrekhanPositionAction::Execute(Event /*event*/)
     bool inPhase = botAI->HasAura("locust swarm", boss) || boss->GetCurrentSpell(CURRENT_GENERIC_SPELL);
     if (inPhase)
     {
-        if (botAI->IsMainTank(bot))
+        if (PlayerbotAI::IsMainTank(bot))
         {
             uint32 nearest = FindNearestWaypoint();
             uint32 next_point;

@@ -5,9 +5,9 @@
  */
 
 #include "AiObjectContext.h"
-#include "Helpers.h"
 #include "DKAiObjectContext.h"
 #include "DruidAiObjectContext.h"
+#include "Helpers.h"
 #include "HunterAiObjectContext.h"
 #include "MageAiObjectContext.h"
 #include "PaladinAiObjectContext.h"
@@ -16,6 +16,7 @@
 #include "ShamanAiObjectContext.h"
 #include "WarlockAiObjectContext.h"
 #include "WarriorAiObjectContext.h"
+#include <mutex>
 
 SharedNamedObjectContextList<Strategy> AiObjectContext::sharedStrategyContexts;
 SharedNamedObjectContextList<Action> AiObjectContext::sharedActionContexts;
@@ -36,17 +37,24 @@ AiObjectContext::AiObjectContext(PlayerbotAI* botAI, SharedNamedObjectContextLis
 
 void AiObjectContext::BuildAllSharedContexts()
 {
-    AiObjectContext::BuildSharedContexts();
-    PriestAiObjectContext::BuildSharedContexts();
-    MageAiObjectContext::BuildSharedContexts();
-    WarlockAiObjectContext::BuildSharedContexts();
-    WarriorAiObjectContext::BuildSharedContexts();
-    ShamanAiObjectContext::BuildSharedContexts();
-    PaladinAiObjectContext::BuildSharedContexts();
-    DruidAiObjectContext::BuildSharedContexts();
-    HunterAiObjectContext::BuildSharedContexts();
-    RogueAiObjectContext::BuildSharedContexts();
-    DKAiObjectContext::BuildSharedContexts();
+    // Contexts only map names to compile-time creators, so a reload has nothing to refresh.
+    static std::once_flag built;
+    std::call_once(
+        built,
+        []()
+        {
+            AiObjectContext::BuildSharedContexts();
+            PriestAiObjectContext::BuildSharedContexts();
+            MageAiObjectContext::BuildSharedContexts();
+            WarlockAiObjectContext::BuildSharedContexts();
+            WarriorAiObjectContext::BuildSharedContexts();
+            ShamanAiObjectContext::BuildSharedContexts();
+            PaladinAiObjectContext::BuildSharedContexts();
+            DruidAiObjectContext::BuildSharedContexts();
+            HunterAiObjectContext::BuildSharedContexts();
+            RogueAiObjectContext::BuildSharedContexts();
+            DKAiObjectContext::BuildSharedContexts();
+        });
 }
 
 void AiObjectContext::BuildSharedContexts()

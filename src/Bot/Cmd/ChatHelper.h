@@ -7,12 +7,12 @@
 #ifndef PLAYERBOTS_CHATHELPER_H
 #define PLAYERBOTS_CHATHELPER_H
 
-#include <map>
-
 #include "Common.h"
 #include "ObjectGuid.h"
 #include "PlayerbotAIAware.h"
 #include "SharedDefines.h"
+#include <map>
+#include <vector>
 
 class GameObject;
 class Quest;
@@ -41,12 +41,13 @@ public:
     static ItemIds parseItems(std::string const text);
     static ItemWithRandomProperty parseItemWithRandomProperty(std::string const text);
     uint32 parseSpell(std::string const text);
-    static std::string parseValue(const std::string& type, const std::string& text);
+    static std::string parseValue(std::string const& type, std::string const& text);
 
     static std::string const FormatQuest(Quest const* quest);
     static std::string const FormatItem(ItemTemplate const* proto, uint32 count = 0, uint32 total = 0);
     static std::string const FormatQItem(uint32 itemId);
     static std::string const FormatSpell(SpellInfo const* spellInfo);
+    static std::string const FormatProfessionLink(Player* player, uint32 skill);
     static std::string const FormatGameobject(GameObject* go);
     static std::string const FormatWorldobject(WorldObject* wo);
     static std::string const FormatWorldEntry(int32 entry);
@@ -63,6 +64,7 @@ public:
     static std::string const FormatBoolean(bool flag);
 
     static uint32 parseItemQuality(std::string const text);
+    static std::string const FormatItemQuality(uint32 quality);
     static bool parseItemClass(std::string const text, uint32* itemClass, uint32* itemSubClass);
     static uint32 parseSlot(std::string const text);
     uint32 parseSkill(std::string const text);
@@ -71,10 +73,12 @@ public:
 
     void eraseAllSubStr(std::string& mainStr, std::string const toErase);
 
-    static std::set<uint32> ExtractAllQuestIds(const std::string& text);
-    static std::set<uint32> ExtractAllItemIds(const std::string& text);
+    static std::set<uint32> ExtractAllQuestIds(std::string const& text);
+    static std::set<uint32> ExtractAllItemIds(std::string const& text);
 
 private:
+    static std::string EncodeRecipeBits(std::vector<bool> const& known);
+
     static std::map<std::string, uint32> consumableSubClasses;
     static std::map<std::string, uint32> tradeSubClasses;
     static std::map<std::string, uint32> itemQualities;

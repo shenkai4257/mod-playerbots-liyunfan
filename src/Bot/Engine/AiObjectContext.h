@@ -7,9 +7,6 @@
 #ifndef PLAYERBOTS_AIOBJECTCONTEXT_H
 #define PLAYERBOTS_AIOBJECTCONTEXT_H
 
-#include <sstream>
-#include <string>
-
 #include "Common.h"
 #include "DynamicObject.h"
 #include "NamedObjectContext.h"
@@ -17,6 +14,8 @@
 #include "Strategy.h"
 #include "Trigger.h"
 #include "Value.h"
+#include <sstream>
+#include <string>
 
 class PlayerbotAI;
 
@@ -28,7 +27,7 @@ typedef UntypedValue* (*ValueCreator)(PlayerbotAI* botAI);
 class AiObjectContext : public PlayerbotAIAware
 {
 public:
-    static BoolCalculatedValue* custom_glyphs(PlayerbotAI* ai); // Added for cutom glyphs
+    static BoolCalculatedValue* custom_glyphs(PlayerbotAI* botAI); // Added for cutom glyphs
     AiObjectContext(PlayerbotAI* botAI,
                     SharedNamedObjectContextList<Strategy>& sharedStrategyContext = sharedStrategyContexts,
                     SharedNamedObjectContextList<Action>& sharedActionContext = sharedActionContexts,

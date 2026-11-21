@@ -5,11 +5,9 @@
  */
 
 #include "SetFocusHealTargetsAction.h"
-
 #include "ObjectAccessor.h"
-#include "Playerbots.h"
 #include "PlayerbotTextMgr.h"
-
+#include "Playerbots.h"
 #include <algorithm>
 #include <cctype>
 
@@ -46,7 +44,7 @@ static Player* FindGroupPlayerByName(Player* player, std::string const& playerNa
 
 bool SetFocusHealTargetsAction::Execute(Event event)
 {
-    if (!botAI->IsHeal(bot) && !botAI->HasStrategy("offheal", BOT_STATE_COMBAT))
+    if (!PlayerbotAI::IsHeal(bot) && !botAI->HasStrategy("offheal", BOT_STATE_COMBAT))
     {
         std::string text = PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "focus_heal_not_healer",

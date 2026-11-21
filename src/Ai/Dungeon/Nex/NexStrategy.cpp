@@ -1,14 +1,20 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "NexStrategy.h"
 #include "NexMultipliers.h"
 
-void WotlkDungeonNexStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
+void WotlkDungeonNexStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     // Horde Commander (Alliance N)/Commander Kolurg (Alliance H)
     // or
     // Alliance Commander (Horde N)/Commander Stoutbeard (Horde H)
     triggers.push_back(new TriggerNode("faction commander whirlwind",
         { NextAction("move from whirlwind", ACTION_MOVE + 5) }));
-    // TODO: Handle fear? (tremor totems, fear ward etc.)
+    // TODO: Handle fear? (tremor totems)
 
     // Grand Magus Telestra
     triggers.push_back(new TriggerNode("telestra firebomb",
@@ -43,7 +49,7 @@ void WotlkDungeonNexStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
     // TODO: Add frost resist aura for paladins?
 }
 
-void WotlkDungeonNexStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
+void WotlkDungeonNexStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new FactionCommanderMultiplier(botAI));
     multipliers.push_back(new TelestraMultiplier(botAI));

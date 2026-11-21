@@ -5,7 +5,6 @@
  */
 
 #include "GenericWarriorNonCombatStrategy.h"
-
 #include "Playerbots.h"
 
 class GenericWarriorNonCombatStrategyActionNodeFactory : public NamedObjectFactory<ActionNode>
@@ -35,6 +34,7 @@ void GenericWarriorNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& tr
     NonCombatStrategy::InitTriggers(triggers);
 
     triggers.push_back(new TriggerNode("often", { NextAction("apply stone", 1.0f) }));
+    triggers.push_back(new TriggerNode("vigilance", { NextAction("vigilance", 10.0f) }));
     triggers.push_back(new TriggerNode(
         "fear sleep sap", { NextAction("berserker rage", ACTION_EMERGENCY + 1) }));
 }

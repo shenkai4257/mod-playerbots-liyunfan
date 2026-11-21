@@ -5,7 +5,6 @@
  */
 
 #include "UseFoodStrategy.h"
-
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 
@@ -14,12 +13,12 @@ void UseFoodStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     Strategy::InitTriggers(triggers);
     if (botAI->HasCheat(BotCheatMask::food))
     {
-        triggers.push_back(new TriggerNode("medium health", { NextAction("food", 3.0f) }));
-        triggers.push_back(new TriggerNode("high mana", { NextAction("drink", 3.0f) }));
+        triggers.push_back(new TriggerNode("medium health", { NextAction("eat", 4.1f) }));
+        triggers.push_back(new TriggerNode("high mana", { NextAction("drink", 4.2f) }));
     }
     else
     {
-        triggers.push_back(new TriggerNode("low health", { NextAction("food", 3.0f) }));
-        triggers.push_back(new TriggerNode("low mana", { NextAction("drink", 3.0f) }));
+        triggers.push_back(new TriggerNode("low health", { NextAction("eat", 4.1f) }));
+        triggers.push_back(new TriggerNode("medium mana", { NextAction("drink", 4.2f) }));
     }
 }

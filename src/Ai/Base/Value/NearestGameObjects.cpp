@@ -5,7 +5,6 @@
  */
 
 #include "NearestGameObjects.h"
-
 #include "CellImpl.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -49,7 +48,7 @@ GuidVector NearestTrapWithDamageValue::Calculate()
         {
             continue;
         }
-        const GameObjectTemplate* goInfo = go->GetGOInfo();
+        GameObjectTemplate const* goInfo = go->GetGOInfo();
         if (!goInfo)
         {
             continue;
@@ -59,7 +58,7 @@ GuidVector NearestTrapWithDamageValue::Calculate()
         {
             continue;
         }
-        const SpellInfo* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
         if (!spellInfo || spellInfo->IsPositive())
         {
             continue;

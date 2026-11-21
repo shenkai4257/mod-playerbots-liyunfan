@@ -1,15 +1,21 @@
-#include "Playerbots.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "OCTriggers.h"
 #include "AiObject.h"
 #include "AiObjectContext.h"
+#include "Playerbots.h"
 #include "Unit.h"
 
 bool DrakosUnstableSphereTrigger::IsActive()
 {
     // Doesn't seem to be much point trying to get melee to dodge this,
     // they get hit anyway and it just causes a lot of running around and chaos
-    // if (botAI->IsMelee(bot)) { return false; }
-    if (botAI->IsTank(bot)) { return false; }
+    // if (PlayerbotAI::IsMelee(bot)) { return false; }
+    if (PlayerbotAI::IsTank(bot)) { return false; }
 
     GuidVector targets = AI_VALUE(GuidVector, "nearest hostile npcs");
     for (auto& target : targets)

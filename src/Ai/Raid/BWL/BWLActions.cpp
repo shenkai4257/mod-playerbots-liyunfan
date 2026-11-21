@@ -1,11 +1,17 @@
-#include "BWLActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
 
-#include "RtiTargetValue.h"
-#include "Playerbots.h"
+#include "BWLActions.h"
 #include "BWLHelpers.h"
-#include "RaidBossHelpers.h"
+#include "EncounterHelpers.h"
+#include "Playerbots.h"
+#include "RtiTargetValue.h"
 
 using namespace BlackwingLairHelpers;
+using namespace EncounterHelpers;
 
 static constexpr float INCREMENTAL_MOVE_STEP_DISTANCE = 3.0f;
 
@@ -109,8 +115,10 @@ bool BwlRazorgoreMarkBossAction::Execute(Event /*event*/)
     {
         if (IsRazorgoreOffTank(bot))
         {
-            MarkTargetWithMoon(bot, boss);
-            SetRtiTarget(botAI, "moon", boss);
+            if (MarkTargetWithMoon(bot, boss))
+                return true;
+
+            SetRtiTarget(botAI, "moon");
 
             if (AI_VALUE(Unit*, "current target") != boss)
                 return Attack(boss);
@@ -146,15 +154,15 @@ bool BwlVaelastraszMoveAwayAction::Execute(Event /*event*/)
     return MoveAlongFleeDirection(boss, fleeX, fleeY);
 }
 
-bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(const Unit* boss, float& fleeX, float& fleeY) const
+bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(Unit const* boss, float& fleeX, float& fleeY) const
 {
     fleeX = 0.0f;
     fleeY = 0.0f;
     bool bossDead = !boss || !boss->IsAlive();
 
-    if (const Group* group = bot->GetGroup())
+    if (Group const* group = bot->GetGroup())
     {
-        for (const GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        for (GroupReference const* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
             Player* p = gref->GetSource();
             if (!p || p == bot || !p->IsAlive() || p->GetMapId() != bot->GetMapId())
@@ -222,7 +230,7 @@ bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(const Unit* boss, floa
     return true;
 }
 
-bool BwlVaelastraszMoveAwayAction::MoveAlongFleeDirection(const Unit* boss, float fleeX, float fleeY)
+bool BwlVaelastraszMoveAwayAction::MoveAlongFleeDirection(Unit const* boss, float fleeX, float fleeY)
 {
     bool bossDead = !boss || !boss->IsAlive();
     float baseAngle = atan2(fleeY, fleeX);
@@ -256,6 +264,32 @@ bool BwlVaelastraszMoveAwayAction::MoveAlongFleeDirection(const Unit* boss, floa
     return false;
 }
 
+// Broodlord Lashlayer
+
+bool BwlBroodlordRangedMoveAwayAction::Execute(Event /*event*/)
+{
+    if (Unit* boss = AI_VALUE2(Unit*, "find target", "broodlord lashlayer"))
+    {
+        float distToTravel = BROODLORD_SAFE_DISTANCE - bot->GetDistance2d(boss);
+        if (distToTravel > 0.0f)
+            return MoveAway(boss, distToTravel);
+    }
+    return false;
+}
+
+// Firemaw / Ebonroc / Flamegor
+
+bool BwlBlackDrakeAvoidBreathAction::isUseful()
+{
+    Unit const* boss = GetTarget();
+    if (!boss)
+        return false;
+
+    // Only reposition while standing in the frontal breath cone.
+    // No tail-swipe check: unlike RearFlankAction there is no rear danger zone here.
+    return boss->HasInArc(2.0f * minAngle, bot);
+}
+
 // Chromaggus
 
 bool BwlUseHourglassSandAction::Execute(Event /*event*/)
@@ -263,17 +297,12 @@ bool BwlUseHourglassSandAction::Execute(Event /*event*/)
     return botAI->CastSpell(static_cast<uint32>(BlackwingLairSpells::SPELL_HOURGLASS_SAND), bot);
 }
 
-bool BwlNefarianFearWardAction::Execute(Event /*event*/)
+// Nefarian
+
+bool BwlNefarianKillCorruptedTotemAction::Execute(Event /*event*/)
 {
-    Unit* nefarian = AI_VALUE2(Unit*, "find target", "nefarian");
-    if (!nefarian)
-        return false;
-
-    Unit* victim = nefarian->GetVictim();
-    if (!victim)
-        return false;
-
-    return botAI->CastSpell("fear ward", victim);
+    Unit* totem = FindCorruptedTotem(botAI);
+    return totem && Attack(totem);
 }
 
 // Trash
@@ -349,7 +378,7 @@ Unit* BwlDeathTalonWyrmguardRangedMoveAwayAction::GetTarget()
 bool BwlDeathTalonWyrmguardRangedMoveAwayAction::Execute(Event /*event*/)
 {
     Unit* target = GetTarget();
-    if (!target)
+    if (!target || target->GetVictim() == bot)
         return false;
 
     float distToTravel = WYRMGUARD_SAFE_DISTANCE - bot->GetDistance2d(target);

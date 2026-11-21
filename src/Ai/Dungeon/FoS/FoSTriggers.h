@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_FOSTRIGGERS_H
 #define PLAYERBOTS_FOSTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum ForgeOfSoulsBronjahmIDs
 {
@@ -23,7 +29,7 @@ enum ForgeOfSoulsBronjahmIDs
 class MoveFromBronjahmTrigger : public Trigger
 {
 public:
-    MoveFromBronjahmTrigger(PlayerbotAI* ai) : Trigger(ai, "move from bronjahm") {}
+    MoveFromBronjahmTrigger(PlayerbotAI* botAI) : Trigger(botAI, "move from bronjahm") {}
 
     bool IsActive() override;
 };
@@ -31,7 +37,7 @@ public:
 class SwitchToSoulFragment : public Trigger
 {
 public:
-    SwitchToSoulFragment(PlayerbotAI* ai) : Trigger(ai, "switch to soul fragment") {}
+    SwitchToSoulFragment(PlayerbotAI* botAI) : Trigger(botAI, "switch to soul fragment") {}
 
     bool IsActive() override;
 };
@@ -39,14 +45,14 @@ public:
 class BronjahmPositionTrigger : public Trigger
 {
 public:
-    BronjahmPositionTrigger(PlayerbotAI* ai) : Trigger(ai, "bronjahm position") {}
+    BronjahmPositionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bronjahm position") {}
     bool IsActive() override;
 };
 
 class DevourerOfSoulsTrigger : public Trigger
 {
 public:
-    DevourerOfSoulsTrigger(PlayerbotAI* ai) : Trigger(ai, "devourer of souls") {}
+    DevourerOfSoulsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "devourer of souls") {}
     bool IsActive() override;
 };
 

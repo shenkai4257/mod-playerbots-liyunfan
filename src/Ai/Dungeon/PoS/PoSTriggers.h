@@ -1,10 +1,16 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_POSTRIGGERS_H
 #define PLAYERBOTS_POSTRIGGERS_H
 
-#include "Trigger.h"
-#include "PlayerbotAIConfig.h"
-#include "GenericTriggers.h"
 #include "DungeonStrategyUtils.h"
+#include "GenericTriggers.h"
+#include "PlayerbotAIConfig.h"
+#include "Trigger.h"
 
 enum PitOfSaronIDs
 {
@@ -32,7 +38,7 @@ enum PitOfSaronIDs
 class IckAndKrickTrigger : public Trigger
 {
 public:
-    IckAndKrickTrigger(PlayerbotAI* ai) : Trigger(ai, "ick and krick") {}
+    IckAndKrickTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ick and krick") {}
 
     bool IsActive() override;
 };
@@ -40,7 +46,7 @@ public:
 class TyrannusTrigger : public Trigger
 {
 public:
-    TyrannusTrigger(PlayerbotAI* ai) : Trigger(ai, "tyrannus") {}
+    TyrannusTrigger(PlayerbotAI* botAI) : Trigger(botAI, "tyrannus") {}
 
     bool IsActive() override;
 };

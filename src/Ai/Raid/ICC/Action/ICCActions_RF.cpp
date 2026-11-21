@@ -1,18 +1,23 @@
-#include <array>
-#include <cmath>
-#include <map>
-#include "GenericActions.h"
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #include "GenericSpellActions.h"
+#include "ICCActions.h"
+#include "ICCScripts.h"
+#include "ICCTriggers.h"
 #include "Multiplier.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
-#include "ICCActions.h"
-#include "ICCScripts.h"
-#include "ICCTriggers.h"
 #include "RtiValue.h"
 #include "Timer.h"
 #include "Vehicle.h"
+#include <array>
+#include <cmath>
+#include <map>
 
 // Rotface
 bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
@@ -25,7 +30,7 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
 
     MarkBossWithSkull(boss);
 
-    if (botAI->IsMainTank(bot))
+    if (PlayerbotAI::IsMainTank(bot))
     {
         bool assistTankAlive = false;
         if (Group* group = bot->GetGroup())
@@ -33,7 +38,7 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
             for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
                 Player* member = itr->GetSource();
-                if (member && member->IsAlive() && member != bot && botAI->IsAssistTank(member))
+                if (member && member->IsAlive() && member != bot && PlayerbotAI::IsAssistTank(member))
                 {
                     assistTankAlive = true;
                     break;
@@ -44,7 +49,7 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
         Unit* bigOoze = bot->FindNearestCreature(NPC_BIG_OOZE, 100.0f);
         bool const bigOozeHandled = bigOoze && bigOoze->IsAlive() && bigOoze->GetVictim() &&
                                     bigOoze->GetVictim()->IsPlayer() &&
-                                    botAI->IsAssistTank(bigOoze->GetVictim()->ToPlayer());
+                                    PlayerbotAI::IsAssistTank(bigOoze->GetVictim()->ToPlayer());
 
         if (bigOoze && bigOoze->IsAlive() && !assistTankAlive && !bigOozeHandled)
             return HandleAssistTankPositioning(boss);
@@ -52,7 +57,7 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
         return PositionMainTankAndMelee(boss, smallOoze);
     }
 
-    if (botAI->IsAssistTank(bot))
+    if (PlayerbotAI::IsAssistTank(bot))
         return HandleAssistTankPositioning(boss);
 
     return false;
@@ -60,15 +65,7 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
 
 bool IccRotfaceTankPositionAction::MarkBossWithSkull(Unit* boss)
 {
-    Group* group = bot->GetGroup();
-    if (!group)
-        return false;
-
-    constexpr uint8 skullIconId = 7;
-    ObjectGuid skullGuid = group->GetTargetIcon(skullIconId);
-    if (skullGuid != boss->GetGUID())
-        group->SetTargetIcon(skullIconId, bot->GetGUID(), boss->GetGUID());
-
+    IccEnsureIconOn(bot, botAI, RtiTargetValue::skullIndex, boss);
     return false;
 }
 
@@ -78,7 +75,7 @@ bool IccRotfaceTankPositionAction::PositionMainTankAndMelee(Unit* boss, Unit*)
     if (boss && boss->HasUnitState(UNIT_STATE_CASTING))
         isBossCasting = true;
 
-    if (botAI->IsMainTank(bot) && boss && boss->GetVictim() == bot)
+    if (PlayerbotAI::IsMainTank(bot) && boss && boss->GetVictim() == bot)
     {
         bool const bossInPosition = boss->GetExactDist2d(ICC_ROTFACE_CENTER_POSITION_BOSS) <= 4.0f;
 
@@ -111,7 +108,7 @@ bool IccRotfaceTankPositionAction::PositionMainTankAndMelee(Unit* boss, Unit*)
         }
     }
 
-    if (boss && isBossCasting && !botAI->IsTank(bot))
+    if (boss && isBossCasting && !PlayerbotAI::IsTank(bot))
     {
         float const x = boss->GetPositionX();
         float const y = boss->GetPositionY();
@@ -140,54 +137,6 @@ bool IccRotfaceTankPositionAction::HandleAssistTankPositioning(Unit*)
     if (activeBigOozes.empty())
         return false;
 
-    auto CastClassTaunt = [&](Unit* target) -> bool
-    {
-        if (!target || !target->IsAlive())
-            return false;
-
-        if (!bot->HasAura(SPELL_SPITEFULL_FURY))
-            bot->AddAura(SPELL_SPITEFULL_FURY, bot);
-
-        switch (bot->getClass())
-        {
-            case CLASS_PALADIN:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_PALADIN, true);
-                if (botAI->CastSpell("hand of reckoning", target))
-                    return true;
-                break;
-            }
-            case CLASS_DEATH_KNIGHT:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_DK, true);
-                if (botAI->CastSpell("dark command", target))
-                    return true;
-                break;
-            }
-            case CLASS_DRUID:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_DRUID, true);
-                if (botAI->CastSpell("growl", target))
-                    return true;
-                break;
-            }
-            case CLASS_WARRIOR:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_WARRIOR, true);
-                if (botAI->CastSpell("taunt", target))
-                    return true;
-                break;
-            }
-            default:
-                break;
-        }
-
-        if (botAI->CastSpell("shoot", target) || botAI->CastSpell("throw", target))
-            return true;
-
-        return false;
-    };
-
     Unit* uncollectedOoze = nullptr;
     float minUncollectedDist = FLT_MAX;
     for (Unit* ooze : activeBigOozes)
@@ -195,7 +144,9 @@ bool IccRotfaceTankPositionAction::HandleAssistTankPositioning(Unit*)
         if (ooze->GetVictim() == bot)
             continue;
 
-        CastClassTaunt(ooze);
+        if (!bot->HasAura(SPELL_SPITEFULL_FURY))
+            bot->AddAura(SPELL_SPITEFULL_FURY, bot);
+        IccCastClassTaunt(bot, botAI, ooze);
 
         float const dist = bot->GetExactDist2d(ooze);
         if (dist < minUncollectedDist)
@@ -278,56 +229,12 @@ Unit* IccRotfaceTankPositionAction::FindAssignedBigOoze(Unit* /*boss*/, std::vec
 
 bool IccRotfaceTankPositionAction::HandleBigOozeKiting(Unit* bigOoze)
 {
-    auto CastClassTaunt = [&](Unit* target) -> bool
+    if (bigOoze->GetVictim() != bot && bigOoze->IsAlive())
     {
-        if (!target || !target->IsAlive())
-            return false;
-
         if (!bot->HasAura(SPELL_SPITEFULL_FURY))
             bot->AddAura(SPELL_SPITEFULL_FURY, bot);
-
-        switch (bot->getClass())
-        {
-            case CLASS_PALADIN:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_PALADIN, true);
-                if (botAI->CastSpell("hand of reckoning", target))
-                    return true;
-                break;
-            }
-            case CLASS_DEATH_KNIGHT:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_DK, true);
-                if (botAI->CastSpell("dark command", target))
-                    return true;
-                break;
-            }
-            case CLASS_DRUID:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_DRUID, true);
-                if (botAI->CastSpell("growl", target))
-                    return true;
-                break;
-            }
-            case CLASS_WARRIOR:
-            {
-                bot->RemoveSpellCooldown(SPELL_TAUNT_WARRIOR, true);
-                if (botAI->CastSpell("taunt", target))
-                    return true;
-                break;
-            }
-            default:
-                break;
-        }
-
-        if (botAI->CastSpell("shoot", target) || botAI->CastSpell("throw", target))
-            return true;
-
-        return false;
-    };
-
-    if (bigOoze->GetVictim() != bot && bigOoze->IsAlive())
-        CastClassTaunt(bigOoze);
+        IccCastClassTaunt(bot, botAI, bigOoze);
+    }
 
     float const oozeDistance = bot->GetExactDist2d(bigOoze);
 
@@ -336,7 +243,11 @@ bool IccRotfaceTankPositionAction::HandleBigOozeKiting(Unit* bigOoze)
         bot->SetTarget(bigOoze->GetGUID());
         bot->SetFacingToObject(bigOoze);
         if (bigOoze->GetVictim() != bot)
-            CastClassTaunt(bigOoze);
+        {
+            if (!bot->HasAura(SPELL_SPITEFULL_FURY))
+                bot->AddAura(SPELL_SPITEFULL_FURY, bot);
+            IccCastClassTaunt(bot, botAI, bigOoze);
+        }
         return false;
     }
 
@@ -415,7 +326,7 @@ bool IccRotfaceGroupPositionAction::Execute(Event /*event*/)
     bool const hasOozeFlood = botAI->HasAura("Ooze Flood", bot);
     Unit* smallOoze = AI_VALUE2(Unit*, "find target", "little ooze");
 
-    if (!botAI->IsTank(bot) && HandlePuddleAvoidance(boss))
+    if (!PlayerbotAI::IsTank(bot) && HandlePuddleAvoidance(boss))
         return true;
 
     if (HandleOozeTargeting())
@@ -489,7 +400,7 @@ bool IccRotfaceGroupPositionAction::MoveAwayFromPuddle(Unit* boss, Unit* puddle,
 
 bool IccRotfaceGroupPositionAction::HandleOozeTargeting()
 {
-    if (botAI->IsMainTank(bot))
+    if (PlayerbotAI::IsMainTank(bot))
         return false;
 
     GuidVector npcs = AI_VALUE(GuidVector, "nearest hostile npcs");
@@ -500,7 +411,7 @@ bool IccRotfaceGroupPositionAction::HandleOozeTargeting()
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || !botAI->IsMainTank(member))
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsMainTank(member))
                 continue;
 
             for (auto const& guid : npcs)
@@ -525,7 +436,7 @@ bool IccRotfaceGroupPositionAction::HandleOozeTargeting()
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || !botAI->IsAssistTank(member))
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsAssistTank(member))
                 continue;
 
             for (auto const& guid : npcs)
@@ -594,7 +505,7 @@ bool IccRotfaceGroupPositionAction::HandleOozeMemberPositioning(Unit* /*mySmallO
         for (Unit* ooze : bigOozes)
         {
             Unit* victim = ooze->GetVictim();
-            if (victim && victim->IsPlayer() && botAI->IsAssistTank(victim->ToPlayer()))
+            if (victim && victim->IsPlayer() && PlayerbotAI::IsAssistTank(victim->ToPlayer()))
             {
                 float const dist = bot->GetExactDist2d(ooze);
                 if (dist < minDist)
@@ -618,7 +529,7 @@ bool IccRotfaceGroupPositionAction::HandleOozeMemberPositioning(Unit* /*mySmallO
             }
         }
 
-        if (target && bot->GetExactDist2d(target) > 2.0f && !botAI->IsAssistTank(bot))
+        if (target && bot->GetExactDist2d(target) > 2.0f && !PlayerbotAI::IsAssistTank(bot))
             return MoveTo(bot->GetMapId(), target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(),
                           false, false, false, true, MovementPriority::MOVEMENT_FORCED);
 
@@ -635,7 +546,7 @@ bool IccRotfaceGroupPositionAction::HandleOozeMemberPositioning(Unit* /*mySmallO
 
 bool IccRotfaceGroupPositionAction::PositionRangedAndHealers(Unit* boss, Unit* smallOoze)
 {
-    if (!(botAI->IsRanged(bot) || botAI->IsHeal(bot)))
+    if (!(PlayerbotAI::IsRanged(bot) || PlayerbotAI::IsHeal(bot)))
         return false;
 
     if (smallOoze && smallOoze->GetVictim() == bot)
@@ -726,16 +637,16 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
     for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
         Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || botAI->IsTank(member))
+        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
             continue;
 
         if (!GET_PLAYERBOT_AI(member))
             continue;
 
         ObjectGuid const guid = member->GetGUID();
-        if (botAI->IsHeal(member))
+        if (PlayerbotAI::IsHeal(member))
             healerGuids.push_back(guid);
-        else if (botAI->IsRanged(member))
+        else if (PlayerbotAI::IsRanged(member))
         {
             if (member->getClass() == CLASS_HUNTER)
                 hunterGuids.push_back(guid);
@@ -809,7 +720,7 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
             return moveTowardSpot(rangedSpots[tempSpots[displacedRank]]);
     }
 
-    if (boss && boss->HasUnitState(UNIT_STATE_CASTING) && !botAI->IsTank(bot))
+    if (boss && boss->HasUnitState(UNIT_STATE_CASTING) && !PlayerbotAI::IsTank(bot))
     {
         float const bx = boss->GetPositionX();
         float const by = boss->GetPositionY();
@@ -827,7 +738,7 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
             Player* member = itr->GetSource();
             if (!member || !member->IsAlive() || member == bot)
                 continue;
-            if (botAI->IsMainTank(member))
+            if (PlayerbotAI::IsMainTank(member))
             {
                 if (bot->getClass() == CLASS_HUNTER)
                 {
@@ -852,7 +763,7 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
 
 bool IccRotfaceMoveAwayFromExplosionAction::Execute(Event /*event*/)
 {
-    if (botAI->IsTank(bot))
+    if (PlayerbotAI::IsTank(bot))
         return false;
 
     Creature* bigOoze = bot->FindNearestCreature(NPC_BIG_OOZE, 100.0f);
@@ -903,16 +814,15 @@ bool IccRotfaceMoveAwayFromExplosionAction::Execute(Event /*event*/)
                 anchor.GetPositionY() + ESCAPE_RADIUS * std::sin(angle)};
     };
 
-    static std::map<std::pair<uint32, ObjectGuid>, int32> sExplosionSlotMemory;
-
     uint32 const instanceId = bot->GetMap()->GetInstanceId();
-    auto const myKey = std::make_pair(instanceId, bot->GetGUID());
+    auto& sExplosionSlotMemory = IcecrownHelpers::IccState(instanceId).rfExplosionSlotMemory;
+    auto const myKey = bot->GetGUID();
 
     // count how many OTHER bots in this instance occupy each slot
     std::array<int32, TOTAL_SLOTS> otherCount{};
     for (auto const& [key, slot] : sExplosionSlotMemory)
     {
-        if (key.first == instanceId && key.second != bot->GetGUID())
+        if (key != bot->GetGUID())
             ++otherCount[slot];
     }
 
@@ -994,14 +904,13 @@ bool IccRotfaceAvoidVileGasAction::Execute(Event /*event*/)
 {
     uint32 const now = getMSTime();
 
-    auto vgIt = IcecrownHelpers::rotfaceVileGas.find(bot->GetMap()->GetInstanceId());
+    IcecrownHelpers::IccInstanceState& st = IcecrownHelpers::IccState(bot->GetMap()->GetInstanceId());
     bool const isVictim =
-        vgIt != IcecrownHelpers::rotfaceVileGas.end() &&
-        vgIt->second.victimGuid == bot->GetGUID() &&
-        getMSTimeDiff(vgIt->second.castTime, now) < 8000;
+        st.rotfaceVileGas.victimGuid == bot->GetGUID() &&
+        getMSTimeDiff(st.rotfaceVileGas.castTime, now) < 8000;
     bool const hasAura = botAI->HasAura("Vile Gas", bot);
 
-    auto& waitMap = IcecrownHelpers::rotfaceVileGasWaitUntil;
+    auto& waitMap = st.rotfaceVileGasWaitUntil;
     auto waitIt = waitMap.find(bot->GetGUID());
     bool const inWait = waitIt != waitMap.end() && now < waitIt->second;
 

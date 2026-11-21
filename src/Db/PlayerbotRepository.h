@@ -7,11 +7,11 @@
 #ifndef PLAYERBOTS_PLAYERBOTREPOSITORY_H
 #define PLAYERBOTS_PLAYERBOTREPOSITORY_H
 
+#include "PlayerbotAI.h"
+#include "PlayerbotsDatabase.h"
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#include "PlayerbotAI.h"
 
 class PlayerbotRepository
 {
@@ -31,13 +31,14 @@ private:
     PlayerbotRepository() = default;
     ~PlayerbotRepository() = default;
 
-    PlayerbotRepository(const PlayerbotRepository&) = delete;
-    PlayerbotRepository& operator=(const PlayerbotRepository&) = delete;
+    PlayerbotRepository(PlayerbotRepository const&) = delete;
+    PlayerbotRepository& operator=(PlayerbotRepository const&) = delete;
 
     PlayerbotRepository(PlayerbotRepository&&) = delete;
     PlayerbotRepository& operator=(PlayerbotRepository&&) = delete;
 
-    void SaveValue(uint32_t guid, std::string const key, std::string const value);
+    void SaveValue(PlayerbotsDatabaseTransaction trans, uint32_t guid, std::string const key,
+                   std::string const value);
     std::string const FormatStrategies(std::string const type, std::vector<std::string> strategies);
 };
 

@@ -1,3 +1,9 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
 #ifndef PLAYERBOTS_MCACTIONS_H
 #define PLAYERBOTS_MCACTIONS_H
 
@@ -30,6 +36,22 @@ public:
     bool Execute(Event event) override;
 };
 
+class McMoveFromLavaAction : public MovementAction
+{
+public:
+    McMoveFromLavaAction(PlayerbotAI* botAI, std::string const name = "mc move from lava")
+        : MovementAction(botAI, name) {}
+    bool Execute(Event event) override;
+};
+
+class McGolemaggBackOffAction : public MovementAction
+{
+public:
+    McGolemaggBackOffAction(PlayerbotAI* botAI, std::string const name = "mc golemagg back off")
+        : MovementAction(botAI, name) {}
+    bool Execute(Event event) override;
+};
+
 class McGolemaggMarkBossAction : public Action
 {
 public:
@@ -44,7 +66,7 @@ public:
     McGolemaggTankAction(PlayerbotAI* botAI, std::string const name)
         : AttackAction(botAI, name) {}
 protected:
-    bool MoveUnitToPosition(Unit* target, const Position& tankPosition, float maxDistance, float stepDistance = 3.0f);
+    bool MoveUnitToPosition(Unit* target, Position const& tankPosition, float maxDistance, float stepDistance = 3.0f);
     bool FindCoreRagers(Unit*& coreRager1, Unit*& coreRager2) const;
 };
 
@@ -64,12 +86,28 @@ public:
     bool Execute(Event event) override;
 };
 
+class McGolemaggHealerPositionAction : public MovementAction
+{
+public:
+    McGolemaggHealerPositionAction(PlayerbotAI* botAI, std::string const name = "mc golemagg healer position")
+        : MovementAction(botAI, name) {}
+    bool Execute(Event event) override;
+};
+
 class McCoreHoundMarkAction : public Action
 {
 public:
     McCoreHoundMarkAction(PlayerbotAI* botAI, std::string const name = "mc core hound mark")
         : Action(botAI, name) {};
     Unit* GetTarget() override;
+    bool Execute(Event event) override;
+};
+
+class McMajordomoStopAttackAction : public Action
+{
+public:
+    McMajordomoStopAttackAction(PlayerbotAI* botAI, std::string const name = "mc majordomo stop attack")
+        : Action(botAI, name) {};
     bool Execute(Event event) override;
 };
 
